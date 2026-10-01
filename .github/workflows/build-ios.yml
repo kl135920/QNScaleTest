@@ -139,7 +139,7 @@ jobs:
           test -f "$APP_PATH/123456789.qn"
           plutil -extract NSHealthShareUsageDescription raw "$APP_PATH/Info.plist" >/dev/null
           plutil -extract NSHealthUpdateUsageDescription raw "$APP_PATH/Info.plist" >/dev/null
-          plutil -extract com.apple.developer.healthkit raw QNDeviceSDKDemo/QNDeviceSDKDemo.entitlements | grep -q true
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.healthkit' QNDeviceSDKDemo/QNDeviceSDKDemo.entitlements | grep -q true
 
           # xcodebuild remains unsigned. This ad-hoc signature only preserves the
           # requested HealthKit entitlement for SideStore's final re-signing.
@@ -147,7 +147,7 @@ jobs:
             --entitlements QNDeviceSDKDemo/QNDeviceSDKDemo.entitlements \
             "$APP_PATH"
           codesign -d --entitlements :- "$APP_PATH" > "$LOG_DIR/app-entitlements.plist"
-          plutil -extract com.apple.developer.healthkit raw "$LOG_DIR/app-entitlements.plist" | grep -q true
+          /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.healthkit' "$LOG_DIR/app-entitlements.plist" | grep -q true
 
           {
             echo "== App product =="
