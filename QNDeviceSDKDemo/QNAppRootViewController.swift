@@ -343,7 +343,7 @@ private struct QNMeasurementView: View {
             .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: store.lastSavedMeasurement?.id) { _ in report = store.lastSavedMeasurement }
-            .sheet(item: $report) { snapshot in QNReportView(snapshot: snapshot, onExport: { shareURL = store.export(snapshot).map { QNShareItem(url: $0) } }) }
+            .sheet(item: $report) { snapshot in QNReportSheet(snapshot: snapshot, onExport: { shareURL = store.export(snapshot).map { QNShareItem(url: $0) } }) }
             .sheet(item: $shareURL) { item in QNShareSheet(items: [item.url]) }
         }
     }
@@ -493,8 +493,7 @@ private struct QNReportView: View {
     let onExport: () -> Void
     @State private var showRaw = false
     var body: some View {
-        NavigationView {
-            ScrollView {
+        ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
@@ -546,11 +545,10 @@ private struct QNReportView: View {
                     QNButton(title: "导出本次原始 JSON", systemImage: "square.and.arrow.up", action: onExport)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 14)
-            }
-            .background(QNDesign.page.ignoresSafeArea())
-            .navigationTitle("测量报告")
-            .navigationBarTitleDisplayMode(.inline)
         }
+        .background(QNDesign.page.ignoresSafeArea())
+        .navigationTitle("测量报告")
+        .navigationBarTitleDisplayMode(.inline)
     }
     @ViewBuilder private func reportCard(_ type: Int) -> some View {
         let definition = QNMetricCatalog.definition(for: type)
@@ -582,6 +580,18 @@ private struct QNReportView: View {
     }
 
     private static func key(for type: Int) -> String { [1:"weight",2:"bmi",3:"bodyFatRate",4:"subcutaneousFatRate",5:"visceralFat",6:"bodyWaterRate",7:"skeletalMuscleRate",8:"boneMass",9:"bmr",11:"proteinRate",12:"leanBodyWeight",13:"muscleMass",14:"metabolicAge",15:"healthScore",21:"fatMass",31:"muscleMassRate",32:"fattyLiverRisk",35:"subcutaneousFatMass",36:"smi",37:"waistHipRatio",112:"skeletalMuscleMass"][type] ?? "type\(type)" }
+}
+
+private struct QNReportSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let snapshot: QNMeasurementSnapshot
+    let onExport: () -> Void
+    var body: some View {
+        NavigationView {
+            QNReportView(snapshot: snapshot, onExport: onExport)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("完成") { dismiss() } } }
+        }
+    }
 }
 
 private struct QNAllItemsView: View {
@@ -763,7 +773,7 @@ private struct QNHistoryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var deleting: QNMeasurementSnapshot?
     @State private var report: QNMeasurementSnapshot?
-    var body: some View { NavigationView { List { ForEach(store.records) { snapshot in Button { report=snapshot } label: { HStack { VStack(alignment:.leading) { Text(snapshot.displayDate); Text(snapshot.status == "abnormal" ? "异常结果已保留" : "正常结果").font(.caption).foregroundStyle(snapshot.isAbnormal ? .orange : .secondary) }; Spacer(); VStack(alignment:.trailing) { Text(snapshot.weight.map { String(format:"%.1f kg",$0) } ?? "—"); Text(snapshot.bodyFatRate.map { String(format:"%.1f",$0) } ?? "—").font(.caption).foregroundStyle(.secondary) } } }.buttonStyle(.plain).swipeActions { Button(role:.destructive) { deleting=snapshot } label: { Label("删除", systemImage:"trash") } } } }.navigationTitle("历史记录").toolbar { ToolbarItem(placement:.cancellationAction) { Button("完成") { dismiss() } } }.alert("删除这条测量？", isPresented: Binding(get:{deleting != nil},set:{if !$0{deleting=nil}})) { Button("取消",role:.cancel){deleting=nil}; Button("删除",role:.destructive){if let deleting{store.delete(deleting)};deleting=nil} }.sheet(item:$report) { QNReportView(snapshot:$0,onExport:{}) } } }
+    var body: some View { NavigationView { List { ForEach(store.records) { snapshot in Button { report=snapshot } label: { HStack { VStack(alignment:.leading) { Text(snapshot.displayDate); Text(snapshot.status == "abnormal" ? "异常结果已保留" : "正常结果").font(.caption).foregroundStyle(snapshot.isAbnormal ? .orange : .secondary) }; Spacer(); VStack(alignment:.trailing) { Text(snapshot.weight.map { String(format:"%.1f kg",$0) } ?? "—"); Text(snapshot.bodyFatRate.map { String(format:"%.1f",$0) } ?? "—").font(.caption).foregroundStyle(.secondary) } } }.buttonStyle(.plain).swipeActions { Button(role:.destructive) { deleting=snapshot } label: { Label("删除", systemImage:"trash") } } } }.navigationTitle("历史记录").toolbar { ToolbarItem(placement:.cancellationAction) { Button("完成") { dismiss() } } }.alert("删除这条测量？", isPresented: Binding(get:{deleting != nil},set:{if !$0{deleting=nil}})) { Button("取消",role:.cancel){deleting=nil}; Button("删除",role:.destructive){if let deleting{store.delete(deleting)};deleting=nil} }.sheet(item:$report) { QNReportSheet(snapshot:$0,onExport:{}) } } }
 }
 
 private struct QNDeveloperView: View {
@@ -854,22 +864,33 @@ private struct QNProfileEditorView: View {
                 .opacity(nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || Double(height) == nil ? 0.45 : 1)
                 .padding(.horizontal, 16).padding(.vertical, 10).background(.ultraThinMaterial)
             }
-            .sheet(isPresented: $showBirthdayPicker) {
-                QNDatePickerSheet(value: birthday) { birthday = $0 }
-            }
-            .sheet(isPresented: $showHeightPicker) {
-                QNNumberPickerSheet(title: "身高", values: (100...220).map(Double.init), initialValue: Double(height) ?? 169, unit: "cm", allowsUnset: false) { value in
-                    if let value { height = String(format: "%.0f", value) }
+            .overlay {
+                if showBirthdayPicker || showHeightPicker || showTargetWeightPicker {
+                    ZStack(alignment: .bottom) {
+                        Color.black.opacity(0.32).ignoresSafeArea().onTapGesture { closePickers() }
+                        if showBirthdayPicker {
+                            QNChineseDatePickerPanel(value: birthday, onCancel: { showBirthdayPicker = false }) {
+                                birthday = $0; showBirthdayPicker = false
+                            }
+                        } else if showHeightPicker {
+                            QNCompactNumberPickerPanel(title: "身高", values: (100...220).map(Double.init), initialValue: Double(height) ?? 169, unit: "cm", onCancel: { showHeightPicker = false }) { value in
+                                height = String(format: "%.0f", value); showHeightPicker = false
+                            }
+                        } else if showTargetWeightPicker {
+                            QNTargetWeightEditorPanel(initialValue: Double(targetWeight), onCancel: { showTargetWeightPicker = false }) { value in
+                                targetWeight = value.map { String(format: "%.1f", $0) } ?? ""; showTargetWeightPicker = false
+                            }
+                        }
+                    }
+                    .transition(.opacity)
                 }
             }
-            .sheet(isPresented: $showTargetWeightPicker) {
-                QNNumberPickerSheet(title: "目标体重", values: stride(from: 30.0, through: 200.0, by: 0.5).map { $0 }, initialValue: Double(targetWeight), unit: "kg", allowsUnset: true) { value in
-                    targetWeight = value.map { String(format: "%.1f", $0) } ?? ""
-                }
-            }
+            .animation(.easeInOut(duration: 0.2), value: showBirthdayPicker || showHeightPicker || showTargetWeightPicker)
         }
     }
     private func save() { let value=QNUserProfile(userId:existing?.userId ?? UUID().uuidString,nickname:nickname.trimmingCharacters(in:.whitespacesAndNewlines),gender:gender,birthday:birthday,height:Double(height) ?? 0,athleteType:0,targetWeight:Double(targetWeight)); store.saveProfile(value); if value.isValid { dismiss() } }
+
+    private func closePickers() { showBirthdayPicker = false; showHeightPicker = false; showTargetWeightPicker = false }
 
     private static let birthdayFormatter: DateFormatter = {
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "zh_CN"); formatter.dateFormat = "yyyy年M月d日"; return formatter
@@ -890,57 +911,137 @@ private struct QNProfileValueRow: View {
     }
 }
 
-private struct QNDatePickerSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var draft: Date
+private struct QNChineseDatePickerPanel: View {
+    @State private var year: Int
+    @State private var month: Int
+    @State private var day: Int
+    let onCancel: () -> Void
     let onDone: (Date) -> Void
-    init(value: Date, onDone: @escaping (Date) -> Void) { _draft = State(initialValue: value); self.onDone = onDone }
+
+    init(value: Date, onCancel: @escaping () -> Void, onDone: @escaping (Date) -> Void) {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: value)
+        _year = State(initialValue: components.year ?? Self.maximumYear)
+        _month = State(initialValue: components.month ?? 1)
+        _day = State(initialValue: components.day ?? 1)
+        self.onCancel = onCancel
+        self.onDone = onDone
+    }
+
+    private var dayCount: Int {
+        let components = DateComponents(year: year, month: month)
+        guard let date = Calendar.current.date(from: components), let range = Calendar.current.range(of: .day, in: .month, for: date) else { return 31 }
+        return range.count
+    }
+
     var body: some View {
-        NavigationView {
-            DatePicker("出生日期", selection: $draft, in: Self.minimumDate...Self.maximumDate, displayedComponents: .date)
-                .datePickerStyle(.wheel).labelsHidden().padding()
-                .navigationTitle("出生日期").navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) { Button("完成") { onDone(draft); dismiss() } }
-                }
+        QNCompactPickerContainer(title: "出生日期", onCancel: onCancel, doneDisabled: false) {
+            let safeDay = min(day, dayCount)
+            let date = Calendar.current.date(from: DateComponents(year: year, month: month, day: safeDay)) ?? Date()
+            let minimumDate = Calendar.current.date(byAdding: .year, value: -120, to: Date()) ?? date
+            let maximumDate = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? date
+            onDone(min(max(date, minimumDate), maximumDate))
+        } content: {
+            HStack(spacing: 0) {
+                Picker("年", selection: $year) { ForEach(Self.minimumYear...Self.maximumYear, id: \.self) { Text("\($0)年").tag($0) } }
+                Picker("月", selection: $month) { ForEach(1...12, id: \.self) { Text("\($0)月").tag($0) } }
+                Picker("日", selection: $day) { ForEach(1...dayCount, id: \.self) { Text("\($0)日").tag($0) } }
+            }
+            .pickerStyle(.wheel)
+            .frame(height: 190)
+            .clipped()
+            .onChange(of: month) { _ in day = min(day, dayCount) }
+            .onChange(of: year) { _ in day = min(day, dayCount) }
         }
     }
-    private static var minimumDate: Date { Calendar.current.date(byAdding: .year, value: -120, to: Date())! }
-    private static var maximumDate: Date { Calendar.current.date(byAdding: .year, value: -18, to: Date())! }
+
+    private static var currentYear: Int { Calendar.current.component(.year, from: Date()) }
+    private static var minimumYear: Int { currentYear - 120 }
+    private static var maximumYear: Int { currentYear - 18 }
 }
 
-private struct QNNumberPickerSheet: View {
-    @Environment(\.dismiss) private var dismiss
+private struct QNCompactNumberPickerPanel: View {
     let title: String
     let values: [Double]
     let unit: String
-    let allowsUnset: Bool
-    let onDone: (Double?) -> Void
-    @State private var selected: Double?
-    init(title: String, values: [Double], initialValue: Double?, unit: String, allowsUnset: Bool, onDone: @escaping (Double?) -> Void) {
-        self.title = title; self.values = values; self.unit = unit; self.allowsUnset = allowsUnset; self.onDone = onDone
-        let selection: Double?
-        if let initialValue { selection = initialValue }
-        else if allowsUnset { selection = nil }
-        else { selection = values.first }
-        _selected = State(initialValue: selection)
+    let onCancel: () -> Void
+    let onDone: (Double) -> Void
+    @State private var selected: Double
+    init(title: String, values: [Double], initialValue: Double, unit: String, onCancel: @escaping () -> Void, onDone: @escaping (Double) -> Void) {
+        self.title = title; self.values = values; self.unit = unit; self.onCancel = onCancel; self.onDone = onDone
+        _selected = State(initialValue: values.min(by: { abs($0 - initialValue) < abs($1 - initialValue) }) ?? initialValue)
     }
     var body: some View {
-        NavigationView {
+        QNCompactPickerContainer(title: title, onCancel: onCancel, doneDisabled: false, onDone: { onDone(selected) }) {
             Picker(title, selection: $selected) {
-                if allowsUnset { Text("未设置").tag(Double?.none) }
                 ForEach(values, id: \.self) { value in
-                    Text("\(value.truncatingRemainder(dividingBy: 1) == 0 ? String(format: "%.0f", value) : String(format: "%.1f", value)) \(unit)").tag(Optional(value))
+                    Text("\(value.truncatingRemainder(dividingBy: 1) == 0 ? String(format: "%.0f", value) : String(format: "%.1f", value)) \(unit)").tag(value)
                 }
             }
-            .pickerStyle(.wheel).labelsHidden().padding()
-            .navigationTitle(title).navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("完成") { onDone(selected); dismiss() } }
-            }
+            .pickerStyle(.wheel).labelsHidden().frame(height: 190).clipped()
         }
+    }
+}
+
+private struct QNTargetWeightEditorPanel: View {
+    @State private var text: String
+    let onCancel: () -> Void
+    let onDone: (Double?) -> Void
+    init(initialValue: Double?, onCancel: @escaping () -> Void, onDone: @escaping (Double?) -> Void) {
+        _text = State(initialValue: initialValue.map { String(format: "%.1f", $0) } ?? "")
+        self.onCancel = onCancel; self.onDone = onDone
+    }
+    private var parsedValue: Double? { Double(text.replacingOccurrences(of: ",", with: ".")) }
+    private var isValid: Bool { text.isEmpty || parsedValue.map { $0 > 0 && $0 <= 500 } == true }
+    var body: some View {
+        QNCompactPickerContainer(title: "目标体重", onCancel: onCancel, doneDisabled: !isValid, onDone: { onDone(text.isEmpty ? nil : parsedValue) }) {
+            VStack(spacing: 16) {
+                Text("直接输入你希望设置的目标体重")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                HStack(alignment: .lastTextBaseline, spacing: 8) {
+                    TextField("例如 65.5", text: $text)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.center)
+                        .font(.system(size: 38, weight: .bold, design: .rounded).monospacedDigit())
+                    Text("kg").font(.headline).foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 18).padding(.vertical, 14)
+                .background(Color.primary.opacity(0.055))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                if !isValid { Text("请输入大于 0 且不超过 500 kg 的数值").font(.footnote).foregroundStyle(.red) }
+                Button("清除目标体重") { text = "" }.font(.subheadline.weight(.semibold)).foregroundStyle(.red)
+            }
+            .padding(.horizontal, 20).padding(.vertical, 18)
+        }
+    }
+}
+
+private struct QNCompactPickerContainer<Content: View>: View {
+    let title: String
+    let onCancel: () -> Void
+    let doneDisabled: Bool
+    let onDone: () -> Void
+    let content: Content
+    init(title: String, onCancel: @escaping () -> Void, doneDisabled: Bool, onDone: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.title = title; self.onCancel = onCancel; self.doneDisabled = doneDisabled; self.onDone = onDone; self.content = content()
+    }
+    var body: some View {
+        VStack(spacing: 0) {
+            Capsule().fill(Color.secondary.opacity(0.35)).frame(width: 38, height: 5).padding(.top, 9).padding(.bottom, 5)
+            HStack {
+                Button("取消", action: onCancel).font(.body.weight(.semibold))
+                Spacer()
+                Text(title).font(.headline)
+                Spacer()
+                Button("完成", action: onDone).font(.body.weight(.semibold)).disabled(doneDisabled)
+            }
+            .padding(.horizontal, 18).padding(.vertical, 10)
+            Divider()
+            content
+        }
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+        .padding(.horizontal, 8).padding(.bottom, 8)
     }
 }
 
