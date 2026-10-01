@@ -480,7 +480,7 @@ private struct QNTrendChart: View {
     }
 
     private func valueText(_ value: Double) -> String {
-        String(format: metric == "weight" ? "%.2f" : "%.1f", displayValue(value))
+        String(format: metric == "weight" ? "%.2f" : "%.1f", value)
     }
 
     private func drawChart(context: inout GraphicsContext, size: CGSize, points: [(record: QNMeasurementSnapshot, value: Double)]) {
@@ -492,7 +492,7 @@ private struct QNTrendChart: View {
         let lower = rawMin - rawSpan * 0.12
         let upper = rawMax + rawSpan * 0.16
         let span = max(upper - lower, 0.1)
-        let plotLeft: CGFloat = 8
+        let plotLeft: CGFloat = 38
         let plotRight = size.width - 42
         let plotTop: CGFloat = 22
         let plotBottom: CGFloat = 205
