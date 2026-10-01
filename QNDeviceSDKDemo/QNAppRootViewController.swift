@@ -331,11 +331,11 @@ private struct QNProfileView: View {
             List {
                 Section("用户资料") {
                     if let profile = store.profile {
-                        LabeledContent("昵称", value: profile.nickname)
-                        LabeledContent("性别", value: profile.genderText)
-                        LabeledContent("身高", value: "\(String(format: "%.0f", profile.height)) cm")
-                        LabeledContent("模式", value: profile.athleteText)
-                        LabeledContent("用户 ID", value: profile.userId)
+                        QNInfoRow(title: "昵称", value: profile.nickname)
+                        QNInfoRow(title: "性别", value: profile.genderText)
+                        QNInfoRow(title: "身高", value: "\(String(format: "%.0f", profile.height)) cm")
+                        QNInfoRow(title: "模式", value: profile.athleteText)
+                        QNInfoRow(title: "用户 ID", value: profile.userId)
                     }
                     Button("编辑资料") { showEditor = true }
                 }
@@ -432,6 +432,19 @@ private struct QNProfileEditorView: View {
 private struct QNShareItem: Identifiable {
     let id = UUID()
     let url: URL
+}
+
+private struct QNInfoRow: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(title).foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+        }
+    }
 }
 
 private struct QNEmptyState: View { let title:String; let message:String; let buttonTitle:String?; let action:(() -> Void)?; var body: some View { VStack(spacing:12) { Image(systemName:"scalemass").font(.system(size:42)).foregroundStyle(QNDesign.blue); Text(title).font(.title3.weight(.semibold)); Text(message).multilineTextAlignment(.center).foregroundStyle(.secondary); if let buttonTitle,let action { QNButton(title:buttonTitle,systemImage:"arrow.right",action:action) } }.frame(maxWidth:.infinity).padding(30).background(.background).clipShape(RoundedRectangle(cornerRadius:18)) } }
