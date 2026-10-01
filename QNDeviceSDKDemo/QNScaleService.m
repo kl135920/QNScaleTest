@@ -305,6 +305,9 @@ NSString * const QNScaleServiceAppId = @"123456789";
             @"items": itemJSON
         };
         self.latestRawMeasurement = measurement;
+        [self appendLogCategory:@"DATA" message:[NSString stringWithFormat:@"QNScaleData=%@", measurement[@"scaleData"]]];
+        [self appendLogCategory:@"DATA" message:[NSString stringWithFormat:@"device=%@", measurement[@"device"]]];
+        [self appendLogCategory:@"DATA" message:[NSString stringWithFormat:@"user=%@", measurement[@"user"]]];
         [self appendLogCategory:@"DATA" message:[NSString stringWithFormat:@"收到最终数据，%lu 项，eightIsAbnormal=%ld reasonMask=%ld", (unsigned long)items.count, (long)scaleData.eightIsAbnormal, (long)scaleData.eightReasonMask]];
         for (NSDictionary *item in itemJSON) { [self appendLogCategory:@"DATA" message:item.description]; }
         id<QNScaleServiceDelegate> delegate = self.delegate;

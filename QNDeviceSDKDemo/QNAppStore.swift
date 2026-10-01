@@ -43,6 +43,7 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
     var authorizationSummary: String { service.authorizationSummary }
     var sdkVersion: String { service.sdkVersion }
     var bundleIdentifier: String { service.bundleIdentifier }
+    var isConnected: Bool { service.connectionState == "已连接" }
     var latestRawMeasurement: [String: Any]? { service.latestRawMeasurement.flatMap(Self.stringKeyedDictionary) }
 
     func saveProfile(_ value: QNUserProfile) {
@@ -159,9 +160,25 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
     }
 
     private static func stringKeyedDictionary(_ value: Any) -> [String: Any]? {
-        if let dictionary = value as? [String: Any] { return dictionary }
-        if let dictionary = value as? [AnyHashable: Any] { return dictionary.reduce(into: [String: Any]()) { result, pair in if let key = pair.key as? String { result[key] = pair.value is NSNull ? NSNull() : pair.value } } }
-        return nil
+        normalizeJSONValue(value) as? [String: Any]
+    }
+
+    private static func normalizeJSONValue(_ value: Any) -> Any {
+        if let dictionary = value as? NSDictionary {
+            var result: [String: Any] = [:]
+            dictionary.forEach { rawKey, rawValue in
+                let key: String?
+                if let string = rawKey as? String { key = string }
+                else if let string = rawKey as? NSString { key = string as String }
+                else { key = nil }
+                if let key { result[key] = normalizeJSONValue(rawValue) }
+            }
+            return result
+        }
+        if let array = value as? NSArray {
+            return array.map { normalizeJSONValue($0) }
+        }
+        return value
     }
 
     private static func string(_ value: Any?) -> String? { if let value = value as? String { return value }; if let value = value as? NSNumber { return value.stringValue }; return nil }

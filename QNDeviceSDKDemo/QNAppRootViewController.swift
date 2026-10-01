@@ -234,7 +234,11 @@ private struct QNMeasurementView: View {
                 }
                 HStack(spacing: 12) {
                     QNButton(title: "扫描", systemImage: "antenna.radiowaves.left.and.right") { store.startScan() }
-                    QNButton(title: "连接", systemImage: "link") { if let selectedIndex { store.connect(index: selectedIndex) } }
+                    if store.isConnected {
+                        QNButton(title: "断开", systemImage: "link.badge.minus") { store.disconnect() }
+                    } else {
+                        QNButton(title: "连接", systemImage: "link") { if let selectedIndex { store.connect(index: selectedIndex) } }
+                    }
                 }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 12).background(.bar)
             }
             .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())

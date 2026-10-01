@@ -21,14 +21,14 @@ struct QNMappedMeasurement {
 
 enum QNMeasurementMapper {
     static func map(measurement: [String: Any], profile: QNUserProfile) throws -> QNMappedMeasurement {
-        guard let scale = measurement["scaleData"] as? [String: Any],
-              let device = measurement["device"] as? [String: Any],
-              let user = measurement["user"] as? [String: Any],
+        guard let scale = dictionary(measurement["scaleData"]),
+              let device = dictionary(measurement["device"]),
+              let user = dictionary(measurement["user"]),
               let measureTime = date(scale["measureTime"]) else {
             throw QNMeasurementRepositoryError.invalidMeasurement("QNScaleData 缺少 scaleData、device、user 或 measureTime")
         }
-        let metadata = measurement["metadata"] as? [String: Any] ?? [:]
-        let items = measurement["items"] as? [[String: Any] ] ?? []
+        let metadata = dictionary(measurement["metadata"]) ?? [:]
+        let items = dictionaries(measurement["items"])
         var values: [Int: Double] = [:]
         for item in items {
             if let type = int(item["type"]), let value = double(item["value"]), value.isFinite { values[type] = value }
@@ -57,6 +57,31 @@ enum QNMeasurementMapper {
         if let value = value as? NSNumber { return value.intValue }
         if let value = value as? Int { return value }
         return nil
+    }
+
+    /// Objective-C callbacks bridge nested dictionaries and arrays as
+    /// Foundation containers. Normalize them before persistence.
+    static func dictionary(_ value: Any?) -> [String: Any]? {
+        if let value = value as? [String: Any] { return value }
+        if let value = value as? [AnyHashable: Any] {
+            return value.reduce(into: [String: Any]()) { result, pair in
+                guard let key = pair.key as? String else { return }
+                result[key] = pair.value
+            }
+        }
+        if let value = value as? NSDictionary {
+            var result: [String: Any] = [:]
+            value.forEach { key, item in
+                if let key = key as? String { result[key] = item }
+            }
+            return result
+        }
+        return nil
+    }
+
+    static func dictionaries(_ value: Any?) -> [[String: Any]] {
+        guard let values = value as? [Any] else { return [] }
+        return values.compactMap(dictionary)
     }
 
     static func date(_ value: Any?) -> Date? {

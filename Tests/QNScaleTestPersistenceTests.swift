@@ -23,6 +23,23 @@ final class QNScaleTestPersistenceTests: XCTestCase {
         XCTAssertEqual(mapped.items.count, 30)
     }
 
+    func testMapperAcceptsObjectiveCBridgeContainers() throws {
+        let source = try fixture()
+        let items = try XCTUnwrap(source["items"] as? [[String: Any]])
+        let measurement: [String: Any] = [
+            "metadata": NSDictionary(dictionary: try XCTUnwrap(source["metadata"] as? [String: Any])),
+            "device": NSDictionary(dictionary: try XCTUnwrap(source["device"] as? [String: Any])),
+            "user": NSDictionary(dictionary: try XCTUnwrap(source["user"] as? [String: Any])),
+            "scaleData": NSDictionary(dictionary: try XCTUnwrap(source["scaleData"] as? [String: Any])),
+            "items": NSArray(array: items.map { NSDictionary(dictionary: $0) })
+        ]
+
+        let mapped = try QNMeasurementMapper.map(measurement: measurement, profile: profile())
+        XCTAssertEqual(try XCTUnwrap(mapped.valuesByType[1]), 84.2, accuracy: 0.0001)
+        XCTAssertEqual(mapped.items.count, items.count)
+        XCTAssertFalse(mapped.deduplicationKey.isEmpty)
+    }
+
     func testRepositoryDeduplicatesAndReopens() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("QNScaleTest-\(UUID().uuidString).sqlite")
         defer { try? FileManager.default.removeItem(at: url); try? FileManager.default.removeItem(at: url.appendingPathExtension("-shm")); try? FileManager.default.removeItem(at: url.appendingPathExtension("-wal")) }
