@@ -76,6 +76,12 @@ jobs:
           set -euo pipefail
           pod install --repo-update 2>&1 | tee "$LOG_DIR/pod-install.log"
 
+      - name: Validate redacted measurement fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 Scripts/validate_fixture.py Tests/Fixtures/QNScaleMeasurementFixture.redacted.json | tee "$LOG_DIR/fixture-validation.log"
+
       - name: Build unsigned iPhone arm64 app
         shell: bash
         run: |

@@ -123,13 +123,21 @@ private struct QNMetricCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.subheadline).foregroundStyle(.secondary)
-            Text(value.map { String(format: definition.precision == 0 ? "%.0f" : "%.1f", $0) } ?? "—").font(.title2.weight(.semibold).monospacedDigit())
+            Text(value.map { Self.format($0, precision: definition.precision) } ?? "—").font(.title2.weight(.semibold).monospacedDigit())
             if let unit = definition.unit { Text(unit).font(.caption).foregroundStyle(.secondary) }
         }
         .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
         .padding(16)
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private static func format(_ value: Double, precision: Int) -> String {
+        switch precision {
+        case 0: return String(format: "%.0f", value)
+        case 2: return String(format: "%.2f", value)
+        default: return String(format: "%.1f", value)
+        }
     }
 }
 
@@ -242,6 +250,7 @@ private struct QNTrendView: View {
     @EnvironmentObject private var store: QNAppStore
     @State private var range = 30
     @State private var metric = "weight"
+    @State private var showComparison = false
     private let metrics = [("weight", "体重"), ("bodyFatRate", "体脂率"), ("fatMass", "脂肪量"), ("muscleMass", "肌肉量"), ("skeletalMuscleMass", "骨骼肌量"), ("bmi", "BMI"), ("bodyWaterRate", "水分率"), ("visceralFat", "内脏脂肪"), ("smi", "SMI")]
 
     private var filtered: [QNMeasurementSnapshot] {
@@ -257,6 +266,7 @@ private struct QNTrendView: View {
                     Text("趋势").font(.largeTitle.weight(.bold))
                     Picker("指标", selection: $metric) { ForEach(metrics, id: \.0) { Text($0.1).tag($0.0) } }.pickerStyle(.menu)
                     ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach([(7,"7天"),(30,"30天"),(90,"3个月"),(180,"6个月"),(365,"1年"),(0,"全部")], id: \.0) { item in Button(item.1) { range = item.0 }.buttonStyle(.borderedProminent).tint(range == item.0 ? QNDesign.blue : .gray.opacity(0.25)).foregroundStyle(range == item.0 ? .white : .primary) } } }
+                    QNButton(title: "选择两次记录对比", systemImage: "arrow.left.arrow.right") { showComparison = true }
                     if filtered.isEmpty { QNEmptyState(title: "暂无趋势数据", message: "完成至少一次真实测量后，这里会从本地数据库读取记录。", buttonTitle: nil, action: nil) }
                     else {
                         QNTrendChart(records: filtered, metric: metric)
@@ -266,6 +276,7 @@ private struct QNTrendView: View {
                     }
                 }.padding(20)
             }.background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
+                .sheet(isPresented: $showComparison) { QNComparisonPickerView() }
         }
     }
 }
@@ -286,6 +297,94 @@ private struct QNTrendChart: View {
     }
 }
 
+private struct QNComparisonPickerView: View {
+    @EnvironmentObject private var store: QNAppStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var startID: UUID?
+    @State private var endID: UUID?
+    @State private var comparison: QNMeasurementComparison?
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("选择起点和终点") {
+                    Picker("起点", selection: $startID) {
+                        Text("请选择").tag(UUID?.none)
+                        ForEach(store.records.sorted { $0.measureTime < $1.measureTime }) { record in
+                            Text(record.displayDate).tag(Optional(record.id))
+                        }
+                    }
+                    Picker("终点", selection: $endID) {
+                        Text("请选择").tag(UUID?.none)
+                        ForEach(store.records.sorted { $0.measureTime < $1.measureTime }) { record in
+                            Text(record.displayDate).tag(Optional(record.id))
+                        }
+                    }
+                }
+                Section {
+                    if store.records.count < 2 {
+                        Text("至少需要两条真实测量记录，不能生成演示数据。").foregroundStyle(.secondary)
+                    } else {
+                        Button("查看变化") {
+                            guard let startID, let endID,
+                                  let start = store.records.first(where: { $0.id == startID }),
+                                  let end = store.records.first(where: { $0.id == endID }) else { return }
+                            comparison = QNHistoryComparisonService.compare(start: start, end: end)
+                        }
+                        .disabled(startID == nil || endID == nil || startID == endID)
+                    }
+                }
+            }
+            .navigationTitle("选择对比记录")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("完成") { dismiss() } } }
+            .sheet(item: $comparison) { QNComparisonView(comparison: $0) }
+        }
+    }
+}
+
+private struct QNComparisonView: View {
+    let comparison: QNMeasurementComparison
+
+    var body: some View {
+        NavigationView {
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("体重变化").font(.headline)
+                        Text(format(comparison.rows.first?.difference, precision: 2, unit: "kg"))
+                            .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
+                        Text("起点 \(comparison.start.displayDate) → 终点 \(comparison.end.displayDate)，相隔 \(comparison.intervalDays) 天").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Section("指标变化") {
+                    ForEach(comparison.rows) { row in
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack {
+                                Text(row.title).font(.subheadline.weight(.semibold))
+                                Spacer()
+                                Text(row.comparable ? format(row.difference, precision: row.precision, unit: row.unit) : "仅显示两端值")
+                                    .foregroundStyle(row.comparable ? QNDesign.blue : .secondary)
+                            }
+                            HStack {
+                                Text("\(format(row.start, precision: row.precision, unit: row.unit)) → \(format(row.end, precision: row.precision, unit: row.unit))")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("身体变化")
+        }
+    }
+
+    private func format(_ value: Double?, precision: Int, unit: String?) -> String {
+        guard let value else { return "—" }
+        let format = precision == 0 ? "%.0f" : (precision == 1 ? "%.1f" : "%.2f")
+        let number = String(format: format, value)
+        return unit.map { "\(number) \($0)" } ?? number
+    }
+}
+
 private struct QNReportView: View {
     let snapshot: QNMeasurementSnapshot
     let onExport: () -> Void
@@ -298,7 +397,7 @@ private struct QNReportView: View {
                     Text(snapshot.displayDate).font(.subheadline).foregroundStyle(.secondary)
                     QNWeightCard(snapshot: snapshot)
                     Text("核心指标").font(.title2.weight(.bold))
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) { ForEach([3,2,13,112,21,6,11,8,5,9,36], id: \.self) { type in let definition=QNMetricCatalog.definition(for:type); QNMetricCard(title: definition.title, value: snapshot.metrics[Self.key(for: type)], definition: definition) } }
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) { ForEach(QNMetricCatalog.reportTypes, id: \.self) { type in reportCard(type) } }
                     Text("身体分段").font(.title2.weight(.bold))
                     Picker("模式", selection: $segmentMode) { Text("肌肉").tag(0); Text("脂肪").tag(1) }.pickerStyle(.segmented)
                     QNSegmentBody(snapshot: snapshot, showFat: segmentMode == 1)
@@ -310,13 +409,24 @@ private struct QNReportView: View {
             }.navigationTitle("测量报告").navigationBarTitleDisplayMode(.inline)
         }
     }
-    private static func key(for type: Int) -> String { [2:"bmi",3:"bodyFatRate",5:"visceralFat",6:"bodyWaterRate",8:"boneMass",9:"bmr",11:"proteinRate",13:"muscleMass",21:"fatMass",36:"smi",112:"skeletalMuscleMass"][type] ?? "type\(type)" }
+    @ViewBuilder private func reportCard(_ type: Int) -> some View {
+        let definition = QNMetricCatalog.definition(for: type)
+        let value = snapshot.metrics[Self.key(for: type)] ?? snapshot.metrics["type\(type)"]
+        VStack(alignment: .leading, spacing: 6) {
+            QNMetricCard(title: definition.title, value: value, definition: definition)
+            if let evaluation = QNReferenceRangeService.evaluation(for: Self.key(for: type), value: value, gender: snapshot.gender) {
+                Text(evaluation.label).font(.caption.weight(.semibold)).foregroundStyle(evaluation.label.contains("偏高") || evaluation.label.contains("肥胖") ? .orange : .secondary)
+            }
+        }
+    }
+
+    private static func key(for type: Int) -> String { [1:"weight",2:"bmi",3:"bodyFatRate",4:"subcutaneousFatRate",5:"visceralFat",6:"bodyWaterRate",7:"skeletalMuscleRate",8:"boneMass",9:"bmr",11:"proteinRate",12:"leanBodyWeight",13:"muscleMass",14:"metabolicAge",15:"healthScore",21:"fatMass",31:"muscleMassRate",32:"fattyLiverRisk",35:"subcutaneousFatMass",36:"smi",37:"waistHipRatio",112:"skeletalMuscleMass"][type] ?? "type\(type)" }
 }
 
 private struct QNAllItemsView: View {
     let snapshot: QNMeasurementSnapshot
     var items: [[String: Any]] { guard let data = snapshot.rawItemsJSON?.data(using: .utf8), let value = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }; return value }
-    var body: some View { VStack(alignment: .leading, spacing: 8) { ForEach(Array(items.enumerated()), id: \.offset) { _, item in let type=(item["type"] as? NSNumber)?.intValue ?? 0; let definition=QNMetricCatalog.definition(for:type); HStack(alignment: .firstTextBaseline) { Text("T\(type)").font(.caption.monospaced()).frame(width: 42, alignment: .leading); VStack(alignment: .leading) { Text(definition.title); Text(definition.sdkSemantic).font(.caption).foregroundStyle(.secondary) }; Spacer(); Text(Self.value(item["value"])).monospacedDigit(); Text(definition.unit ?? "原值").font(.caption).foregroundStyle(.secondary) } } }.font(.subheadline) }
+    var body: some View { VStack(alignment: .leading, spacing: 10) { ForEach(Array(items.enumerated()), id: \.offset) { _, item in let type=(item["type"] as? NSNumber)?.intValue ?? 0; let definition=QNMetricCatalog.definition(for:type); HStack(alignment: .firstTextBaseline) { Text("T\(type)").font(.caption.monospaced()).frame(width: 42, alignment: .leading); VStack(alignment: .leading) { Text((item["name"] as? String) ?? definition.title); Text("\(definition.title) · \(item["valueTypeName"] as? String ?? "SDK 原值")").font(.caption).foregroundStyle(.secondary) }; Spacer(); Text(Self.value(item["value"])).monospacedDigit(); if let unit = definition.unit { Text(unit).font(.caption).foregroundStyle(.secondary) } } } }.font(.subheadline) }
     private static func value(_ value: Any?) -> String { if let value=value as? NSNumber { return String(format:"%.3f", value.doubleValue) }; return value.map { "\($0)" } ?? "—" }
 }
 
@@ -389,7 +499,7 @@ private struct QNProfileEditorView: View {
         self.isRequired = isRequired
         _nickname = State(initialValue: profile?.nickname ?? "")
         _gender = State(initialValue: profile?.gender ?? "male")
-        _birthday = State(initialValue: profile?.birthday ?? Calendar.current.date(byAdding: .year, value: -30, to: Date())!)
+        _birthday = State(initialValue: profile?.birthday ?? Date())
         _height = State(initialValue: profile.map { String(format: "%.0f", $0.height) } ?? "")
         _athlete = State(initialValue: profile?.athleteType == 1)
         _targetWeight = State(initialValue: profile?.targetWeight.map { String(format: "%.1f", $0) } ?? "")

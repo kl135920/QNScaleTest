@@ -1,0 +1,66 @@
+{
+  "device": {
+    "bluetoothName": "QN-Scale",
+    "deviceIdentifier": "REDACTED",
+    "deviceType": 100,
+    "modeId": "0EDB",
+    "isSupportEightElectrodes": true
+  },
+  "metadata": {
+    "appId": "123456789",
+    "sdkVersion": "2.37.1",
+    "bundleIdentifier": "com.qingniu.sdk.test"
+  },
+  "scaleData": {
+    "measureTime": "2026-10-01T15:34:46+08:00",
+    "hmac": null,
+    "height": 0,
+    "heightMode": 0,
+    "weight": 84.2,
+    "resistance50": 27236,
+    "resistance500": 23132,
+    "newEightModel": 0,
+    "eightIsAbnormal": 0,
+    "eightReasonMask": 0,
+    "barCode": null
+  },
+  "user": {
+    "userId": "preview-user",
+    "gender": "male",
+    "height": 169,
+    "athleteType": 0,
+    "birthday": "1990-01-01"
+  },
+  "items": [
+    {"type": 1, "name": "weight", "value": 84.2, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 2, "name": "BMI", "value": 29.5, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 3, "name": "body fat rate", "value": 26.5, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 7, "name": "muscle rate", "value": 41.6, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 8, "name": "bone mass", "value": 4.5, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 13, "name": "muscle mass", "value": 57.8, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 15, "name": "health score", "value": 75.1, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 21, "name": "fat mass", "value": 22.3, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 31, "name": "muscle mass rate", "value": 68.6, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 32, "name": "fatty liver risk", "value": 1, "valueType": 1, "valueTypeName": "int", "unit": null, "description": null},
+    {"type": 35, "name": "subcutaneous fat mass", "value": 19.9, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 36, "name": "smi", "value": 8.7, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 101, "name": "right upper limb muscle weight", "value": 3.5, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 102, "name": "left upper limb muscle weight", "value": 3.5, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 103, "name": "trunk muscle weight", "value": 27.1, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 104, "name": "lower right muscle weight", "value": 9.0, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 105, "name": "lower left muscle weight", "value": 8.9, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 111, "name": "mineral salt rate", "value": 5.3, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 112, "name": "skeletal muscle mass", "value": 35.0, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 113, "name": "right upper limb fat mass", "value": 1.6, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 114, "name": "left upper limb fat mass", "value": 1.5, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 115, "name": "trunk fat mass", "value": 12.3, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 116, "name": "right leg fat mass", "value": 3.2, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 117, "name": "left leg fat mass", "value": 3.2, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 118, "name": "left arm muscle ratio", "value": 4.2, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 119, "name": "right arm muscle ratio", "value": 4.2, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 120, "name": "trunk muscle ratio", "value": 32.2, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 121, "name": "left leg muscle ratio", "value": 10.6, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 122, "name": "right leg muscle ratio", "value": 10.7, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null},
+    {"type": 999, "name": "future sdk metric", "value": 12.34, "valueType": 0, "valueTypeName": "double", "unit": null, "description": null}
+  ]
+}

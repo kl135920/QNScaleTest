@@ -23,13 +23,16 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
 
     let service: QNScaleService
     let repository: QNMeasurementRepository?
-    private let profileKey = "QNScaleTest.profile.v1"
+    private let profileStore = QNProfileStore()
+    private let pendingURL: URL
 
     override init() {
         service = QNScaleService.shared()
         repository = try? QNMeasurementRepository()
+        pendingURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("QNScaleTest.pending-measurement.json")
         super.init()
-        profile = loadProfile()
+        profile = profileStore.load()
+        pendingMeasurement = loadPendingMeasurement()
         service.delegate = self
         reloadRecords()
         service.initializeIfNeeded()
@@ -45,8 +48,7 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
     func saveProfile(_ value: QNUserProfile) {
         guard value.isValid else { lastError = "资料未完成：请填写昵称、性别、合法生日和身高"; return }
         do {
-            let data = try JSONEncoder().encode(value)
-            UserDefaults.standard.set(data, forKey: profileKey)
+            try profileStore.save(value)
             profile = value
             lastError = nil
         } catch { lastError = "资料保存失败：\(error.localizedDescription)" }
@@ -87,7 +89,7 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
     }
 
     func export(_ snapshot: QNMeasurementSnapshot) -> URL? {
-        guard let json = snapshot.rawMeasurementJSON, let data = json.data(using: .utf8) else { return nil }
+        guard let repository, let data = try? repository.export(snapshot) else { return nil }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("QNScaleMeasurement-\(Self.fileStamp()).json")
         do { try data.write(to: url, options: .atomic); return url }
         catch { lastError = "测量导出失败：\(error.localizedDescription)"; return nil }
@@ -119,9 +121,11 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
         let json = Self.stringKeyedDictionary(measurement) ?? [:]
         DispatchQueue.main.async {
             self.pendingMeasurement = json
+            self.persistPendingMeasurement(json)
             guard let profile = self.profile, let repository = self.repository else { self.lastError = "测量收到，但资料或数据库不可用"; return }
             do {
                 let saved = try repository.save(measurement: json, profile: profile)
+                self.clearPendingMeasurement()
                 self.lastSavedMeasurement = saved
                 self.records = try repository.fetchAll()
                 self.measurementState = saved.isAbnormal ? "测量异常，已保存原始结果" : "测量完成，已保存"
@@ -132,16 +136,26 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
 
     func retryPendingSave() {
         guard let pendingMeasurement, let profile, let repository else { return }
-        do { lastSavedMeasurement = try repository.save(measurement: pendingMeasurement, profile: profile); records = try repository.fetchAll(); lastError = nil }
+        do { lastSavedMeasurement = try repository.save(measurement: pendingMeasurement, profile: profile); records = try repository.fetchAll(); clearPendingMeasurement(); lastError = nil }
         catch { lastError = "重试保存失败：\(error.localizedDescription)" }
     }
 
     func scaleServiceDidReceiveLog(_ line: String) { objectWillChange.send() }
-    func scaleServiceDidFinishInitialization(_ success: Bool, error: Error?) { if let error { lastError = "SDK 初始化失败：\(error.localizedDescription)" } }
+    func scaleServiceDidFinishInitialization(_ success: Bool, error: Error?) { DispatchQueue.main.async { if let error { self.lastError = "SDK 初始化失败：\(error.localizedDescription)" } else if !success { self.lastError = "SDK 初始化失败：未知错误" } } }
 
-    private func loadProfile() -> QNUserProfile? {
-        guard let data = UserDefaults.standard.data(forKey: profileKey) else { return nil }
-        return try? JSONDecoder().decode(QNUserProfile.self, from: data)
+    private func persistPendingMeasurement(_ measurement: [String: Any]) {
+        guard JSONSerialization.isValidJSONObject(measurement), let data = try? JSONSerialization.data(withJSONObject: measurement, options: [.sortedKeys]) else { return }
+        do { try FileManager.default.createDirectory(at: pendingURL.deletingLastPathComponent(), withIntermediateDirectories: true); try data.write(to: pendingURL, options: .atomic) } catch { lastError = "待保存结果暂存失败：\(error.localizedDescription)" }
+    }
+
+    private func loadPendingMeasurement() -> [String: Any]? {
+        guard let data = try? Data(contentsOf: pendingURL), let value = try? JSONSerialization.jsonObject(with: data), let dictionary = value as? [String: Any] else { return nil }
+        return dictionary
+    }
+
+    private func clearPendingMeasurement() {
+        pendingMeasurement = nil
+        try? FileManager.default.removeItem(at: pendingURL)
     }
 
     private static func stringKeyedDictionary(_ value: Any) -> [String: Any]? {

@@ -12,7 +12,7 @@ struct QNUserProfile: Codable, Equatable {
     var isValid: Bool {
         let age = Calendar.current.dateComponents([.year], from: birthday, to: Date()).year ?? 0
         return !userId.isEmpty && !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            (gender == "male" || gender == "female") && height >= 50 && height <= 250 && age >= 3 && age <= 80
+            (gender == "male" || gender == "female") && height >= 50 && height <= 250 && age >= 18 && age <= 120
     }
 
     var genderText: String { gender == "female" ? "女" : "男" }
