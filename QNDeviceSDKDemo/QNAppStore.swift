@@ -26,7 +26,7 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
     private let profileKey = "QNScaleTest.profile.v1"
 
     override init() {
-        service = QNScaleService.sharedService()
+        service = QNScaleService.shared()
         repository = try? QNMeasurementRepository()
         super.init()
         profile = loadProfile()
@@ -59,7 +59,7 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
         guard let profile else { lastError = "请先完成用户资料"; return }
         let previousHMAC = records.first(where: { $0.userId == profile.userId })?.hmac
         measurementState = "连接中"
-        service.connectToDevice(at: index, userId: profile.userId, nickname: profile.nickname, height: Int(profile.height), gender: profile.gender, birthday: profile.birthday, athleteType: profile.athleteType, previousHMAC: previousHMAC)
+        service.connectToDevice(at: UInt(index), userId: profile.userId, nickname: profile.nickname, height: Int(profile.height), gender: profile.gender, birthday: profile.birthday, athleteType: profile.athleteType, previousHMAC: previousHMAC)
     }
 
     func disconnect() { service.disconnect() }

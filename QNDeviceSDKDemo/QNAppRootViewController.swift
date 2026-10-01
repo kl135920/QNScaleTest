@@ -199,7 +199,7 @@ private struct QNSegmentBody: View {
 private struct QNMeasurementView: View {
     @EnvironmentObject private var store: QNAppStore
     @State private var report: QNMeasurementSnapshot?
-    @State private var shareURL: URL?
+    @State private var shareURL: QNShareItem?
     @State private var selectedIndex: Int?
 
     var body: some View {
@@ -232,8 +232,8 @@ private struct QNMeasurementView: View {
             .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: store.lastSavedMeasurement?.id) { _ in report = store.lastSavedMeasurement }
-            .sheet(item: $report) { QNReportView(snapshot: $0, onExport: { shareURL = store.export($0) }) }
-            .sheet(item: $shareURL) { QNShareSheet(items: [$0]) }
+            .sheet(item: $report) { snapshot in QNReportView(snapshot: snapshot, onExport: { shareURL = store.export(snapshot).map { QNShareItem(url: $0) } }) }
+            .sheet(item: $shareURL) { item in QNShareSheet(items: [item.url]) }
         }
     }
 }
@@ -325,7 +325,7 @@ private struct QNProfileView: View {
     @State private var showEditor = false
     @State private var showHistory = false
     @State private var showDeveloper = false
-    @State private var shareURL: URL?
+    @State private var shareURL: QNShareItem?
     var body: some View {
         NavigationView {
             List {
@@ -341,7 +341,7 @@ private struct QNProfileView: View {
                 }
                 Section("数据") {
                     Button("历史记录") { showHistory = true }
-                    Button("导出全部历史 JSON") { shareURL = store.exportAllHistory() }
+                    Button("导出全部历史 JSON") { shareURL = store.exportAllHistory().map { QNShareItem(url: $0) } }
                 }
                 Section("关于") {
                     Button("开发者模式") { showDeveloper = true }
@@ -352,7 +352,7 @@ private struct QNProfileView: View {
             .sheet(isPresented: $showEditor) { QNProfileEditorView(profile: store.profile, isRequired: false) }
             .sheet(isPresented: $showHistory) { QNHistoryView() }
             .sheet(isPresented: $showDeveloper) { QNDeveloperView() }
-            .sheet(item: $shareURL) { QNShareSheet(items: [$0]) }
+            .sheet(item: $shareURL) { item in QNShareSheet(items: [item.url]) }
         }
     }
 }
@@ -368,8 +368,8 @@ private struct QNHistoryView: View {
 private struct QNDeveloperView: View {
     @EnvironmentObject private var store: QNAppStore
     @Environment(\.dismiss) private var dismiss
-    @State private var shareURL: URL?
-    var body: some View { NavigationView { ScrollView { VStack(alignment:.leading,spacing:16) { Text("SDK version：\(store.sdkVersion)"); Text("Bundle ID：\(store.bundleIdentifier)"); Text("App ID：\(QNScaleServiceAppId)"); Text(store.authorizationSummary).font(.footnote.monospaced()); Text("Debug Log").font(.headline); Text(store.debugLog).font(.caption.monospaced()).textSelection(.enabled); HStack { QNButton(title:"复制日志",systemImage:"doc.on.doc") { store.copyLogs() }; QNButton(title:"分享日志",systemImage:"square.and.arrow.up") { let url=FileManager.default.temporaryDirectory.appendingPathComponent("QNScaleDebugLog.txt"); try? store.debugLog.data(using:.utf8)?.write(to:url); shareURL=url } } }.padding(20) }.navigationTitle("开发者模式").toolbar { ToolbarItem(placement:.cancellationAction){Button("完成"){dismiss()}} }.sheet(item:$shareURL){QNShareSheet(items:[$0])} } }
+    @State private var shareURL: QNShareItem?
+    var body: some View { NavigationView { ScrollView { VStack(alignment:.leading,spacing:16) { Text("SDK version：\(store.sdkVersion)"); Text("Bundle ID：\(store.bundleIdentifier)"); Text("App ID：\(QNScaleServiceAppId)"); Text(store.authorizationSummary).font(.footnote.monospaced()); Text("Debug Log").font(.headline); Text(store.debugLog).font(.caption.monospaced()).textSelection(.enabled); HStack { QNButton(title:"复制日志",systemImage:"doc.on.doc") { store.copyLogs() }; QNButton(title:"分享日志",systemImage:"square.and.arrow.up") { let url=FileManager.default.temporaryDirectory.appendingPathComponent("QNScaleDebugLog.txt"); try? store.debugLog.data(using:.utf8)?.write(to:url); shareURL=QNShareItem(url:url) } } }.padding(20) }.navigationTitle("开发者模式").toolbar { ToolbarItem(placement:.cancellationAction){Button("完成"){dismiss()}} }.sheet(item:$shareURL){item in QNShareSheet(items:[item.url])} } }
 }
 
 private struct QNProfileEditorView: View {
@@ -420,13 +420,18 @@ private struct QNProfileEditorView: View {
                     Button("保存") { save() }
                         .disabled(nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || Double(height) == nil)
                 }
-                if !isRequired {
-                    ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }.disabled(isRequired).opacity(isRequired ? 0 : 1)
                 }
             }
         }
     }
     private func save() { let value=QNUserProfile(userId:existing?.userId ?? UUID().uuidString,nickname:nickname.trimmingCharacters(in:.whitespacesAndNewlines),gender:gender,birthday:birthday,height:Double(height) ?? 0,athleteType:athlete ? 1 : 0,targetWeight:Double(targetWeight)); store.saveProfile(value); if value.isValid { dismiss() } }
+}
+
+private struct QNShareItem: Identifiable {
+    let id = UUID()
+    let url: URL
 }
 
 private struct QNEmptyState: View { let title:String; let message:String; let buttonTitle:String?; let action:(() -> Void)?; var body: some View { VStack(spacing:12) { Image(systemName:"scalemass").font(.system(size:42)).foregroundStyle(QNDesign.blue); Text(title).font(.title3.weight(.semibold)); Text(message).multilineTextAlignment(.center).foregroundStyle(.secondary); if let buttonTitle,let action { QNButton(title:buttonTitle,systemImage:"arrow.right",action:action) } }.frame(maxWidth:.infinity).padding(30).background(.background).clipShape(RoundedRectangle(cornerRadius:18)) } }
