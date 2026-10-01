@@ -273,7 +273,6 @@ private struct QNSegmentBody: View {
                     .symbolRenderingMode(.monochrome)
                     .foregroundStyle(accent)
                     .mask(QNBodyRegionMask(region: selected).fill(.white))
-                    .shadow(color: accent.opacity(0.30), radius: 10)
                 GeometryReader { proxy in
                     hitRegionButton("右臂", x: 0.18, y: 0.34, width: 0.34, height: 0.34, proxy: proxy)
                     hitRegionButton("左臂", x: 0.82, y: 0.34, width: 0.34, height: 0.34, proxy: proxy)
@@ -326,13 +325,13 @@ private struct QNBodyRegionMask: Shape {
         var path = Path()
         let regionRect: CGRect
         switch region {
-        case "右臂": regionRect = CGRect(x: rect.minX, y: rect.minY + rect.height * 0.18, width: rect.width * 0.36, height: rect.height * 0.43)
-        case "左臂": regionRect = CGRect(x: rect.minX + rect.width * 0.64, y: rect.minY + rect.height * 0.18, width: rect.width * 0.36, height: rect.height * 0.43)
-        case "右腿": regionRect = CGRect(x: rect.minX + rect.width * 0.28, y: rect.minY + rect.height * 0.54, width: rect.width * 0.23, height: rect.height * 0.46)
-        case "左腿": regionRect = CGRect(x: rect.minX + rect.width * 0.49, y: rect.minY + rect.height * 0.54, width: rect.width * 0.23, height: rect.height * 0.46)
-        default: regionRect = CGRect(x: rect.minX + rect.width * 0.31, y: rect.minY + rect.height * 0.16, width: rect.width * 0.38, height: rect.height * 0.46)
+        case "右臂": regionRect = CGRect(x: rect.minX, y: rect.minY + rect.height * 0.18, width: rect.width * 0.42, height: rect.height * 0.40)
+        case "左臂": regionRect = CGRect(x: rect.minX + rect.width * 0.58, y: rect.minY + rect.height * 0.18, width: rect.width * 0.42, height: rect.height * 0.40)
+        case "右腿": regionRect = CGRect(x: rect.minX, y: rect.minY + rect.height * 0.54, width: rect.width * 0.50, height: rect.height * 0.46)
+        case "左腿": regionRect = CGRect(x: rect.minX + rect.width * 0.50, y: rect.minY + rect.height * 0.54, width: rect.width * 0.50, height: rect.height * 0.46)
+        default: regionRect = CGRect(x: rect.minX + rect.width * 0.18, y: rect.minY + rect.height * 0.18, width: rect.width * 0.64, height: rect.height * 0.39)
         }
-        path.addRoundedRect(in: regionRect, cornerSize: CGSize(width: 14, height: 14))
+        path.addRect(regionRect)
         return path
     }
 }
