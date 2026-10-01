@@ -57,7 +57,7 @@ final class QNHealthKitService: QNHealthKitServiceProtocol {
         guard isAvailable else { throw QNHealthKitError.unavailable }
         let shareTypes = Set(quantityTypes.map { $0 as HKSampleType })
         let readTypes = Set(quantityTypes.map { $0 as HKObjectType })
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             healthStore.requestAuthorization(toShare: shareTypes, read: readTypes) { success, error in
                 if let error { continuation.resume(throwing: error) }
                 else if success { continuation.resume(returning: ()) }
@@ -150,7 +150,7 @@ final class QNHealthKitService: QNHealthKitServiceProtocol {
     }
 
     private func save(_ sample: HKQuantitySample) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             healthStore.save(sample) { success, error in
                 if let error { continuation.resume(throwing: error) }
                 else if success { continuation.resume(returning: ()) }
