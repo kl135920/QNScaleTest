@@ -134,7 +134,7 @@ final class QNMeasurementRepository {
                 object.setValue(Self.string(device["bluetoothName"]), forKey: "bluetoothName")
                 object.setValue(deviceIdentifier, forKey: "deviceIdentifier")
                 object.setValue(Self.string(device["modeId"]), forKey: "modeId")
-                object.setValue(Int64(Self.int(device["deviceType"])), forKey: "sdkDeviceType")
+                object.setValue(Self.int(device["deviceType"]).map(Int64.init), forKey: "sdkDeviceType")
                 object.setValue(Self.string(measurement["metadata"].flatMap { ($0 as? [String: Any])?["sdkVersion"] }), forKey: "sdkVersion")
                 object.setValue(Self.int(scale["resistance50"]).map(Int64.init), forKey: "resistance50")
                 object.setValue(Self.int(scale["resistance500"]).map(Int64.init), forKey: "resistance500")
@@ -196,7 +196,25 @@ final class QNMeasurementRepository {
         return QNMeasurementSnapshot(id: (object.value(forKey: "id") as? UUID) ?? UUID(), measureTime: (object.value(forKey: "measureTime") as? Date) ?? .distantPast, createdAt: (object.value(forKey: "createdAt") as? Date) ?? .distantPast, status: (object.value(forKey: "status") as? String) ?? "normal", userId: object.value(forKey: "userId") as? String, nickname: object.value(forKey: "nickname") as? String, gender: object.value(forKey: "gender") as? String, birthday: object.value(forKey: "birthday") as? Date, height: d("height"), athleteType: i("athleteType"), targetWeight: d("targetWeight"), metrics: metrics, rawItemsJSON: object.value(forKey: "rawItemsJSON") as? String, rawMeasurementJSON: object.value(forKey: "rawMeasurementJSON") as? String, hmac: object.value(forKey: "hmac") as? String, modeId: object.value(forKey: "modeId") as? String, deviceIdentifier: object.value(forKey: "deviceIdentifier") as? String, bluetoothName: object.value(forKey: "bluetoothName") as? String, sdkVersion: object.value(forKey: "sdkVersion") as? String, resistance50: i("resistance50"), resistance500: i("resistance500"), newEightModel: i("newEightModel"), eightIsAbnormal: i("eightIsAbnormal"), eightReasonMask: i("eightReasonMask"))
     }
 
-    private static func exportDictionary(_ snapshot: QNMeasurementSnapshot) -> [String: Any] { ["id": snapshot.id.uuidString, "measureTime": isoDate(snapshot.measureTime), "status": snapshot.status, "user": ["userId": snapshot.userId ?? NSNull(), "nickname": snapshot.nickname ?? NSNull(), "gender": snapshot.gender ?? NSNull(), "birthday": snapshot.birthday.map(isoDate) ?? NSNull(), "height": snapshot.height ?? NSNull(), "athleteType": snapshot.athleteType ?? NSNull()], "standardized": snapshot.metrics, "device": ["bluetoothName": snapshot.bluetoothName ?? NSNull(), "deviceIdentifier": snapshot.deviceIdentifier ?? NSNull(), "modeId": snapshot.modeId ?? NSNull(), "sdkVersion": snapshot.sdkVersion ?? NSNull()], "rawItems": snapshot.rawItemsJSON.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } ?? NSNull(), "rawQNData": snapshot.rawMeasurementJSON.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } ?? NSNull()] }
+    private static func exportDictionary(_ snapshot: QNMeasurementSnapshot) -> [String: Any] {
+        let user: [String: Any] = [
+            "userId": snapshot.userId ?? NSNull(),
+            "nickname": snapshot.nickname ?? NSNull(),
+            "gender": snapshot.gender ?? NSNull(),
+            "birthday": snapshot.birthday.map { isoDate($0) } ?? NSNull(),
+            "height": snapshot.height ?? NSNull(),
+            "athleteType": snapshot.athleteType ?? NSNull()
+        ]
+        let device: [String: Any] = [
+            "bluetoothName": snapshot.bluetoothName ?? NSNull(),
+            "deviceIdentifier": snapshot.deviceIdentifier ?? NSNull(),
+            "modeId": snapshot.modeId ?? NSNull(),
+            "sdkVersion": snapshot.sdkVersion ?? NSNull()
+        ]
+        let rawItems: Any = snapshot.rawItemsJSON.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } ?? NSNull()
+        let rawQNData: Any = snapshot.rawMeasurementJSON.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } ?? NSNull()
+        return ["id": snapshot.id.uuidString, "measureTime": isoDate(snapshot.measureTime), "status": snapshot.status, "user": user, "standardized": snapshot.metrics, "device": device, "rawItems": rawItems, "rawQNData": rawQNData]
+    }
     private static func standardKey(for type: Int) -> String? { [2:"bmi",3:"bodyFatRate",4:"subcutaneousFat",5:"visceralFat",6:"bodyWaterRate",7:"muscleRate",8:"boneMass",9:"bmr",11:"proteinRate",12:"leanBodyWeight",13:"muscleMass",14:"metabolicAge",21:"fatMass",23:"waterContent",24:"proteinMass",31:"muscleMassRate",36:"smi",37:"waistHipRatio",101:"rightArmMuscleMass",102:"leftArmMuscleMass",103:"trunkMuscleMass",104:"rightLegMuscleMass",105:"leftLegMuscleMass",113:"rightArmFatMass",114:"leftArmFatMass",115:"trunkFatMass",116:"rightLegFatMass",117:"leftLegFatMass"][type] }
     private static func string(_ value: Any?) -> String? { if let value = value as? String { return value }; return nil }
     private static func double(_ value: Any?) -> Double? { if let value = value as? NSNumber { return value.doubleValue }; if let value = value as? Double { return value }; return nil }
