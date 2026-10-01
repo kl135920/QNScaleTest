@@ -7,7 +7,7 @@
 //
 
 #import "AppDelegate.h"
-#import "QNDeviceSDKDemo-Swift.h"
+#import "QNScaleTest-Swift.h"
 
 @interface AppDelegate ()
 
