@@ -75,6 +75,7 @@ private struct QNMainTabView: View {
 
 private struct QNDashboardView: View {
     @EnvironmentObject private var store: QNAppStore
+    @State private var report: QNMeasurementSnapshot?
     let onMeasure: () -> Void
 
     private var latest: QNMeasurementSnapshot? { store.records.first }
@@ -91,7 +92,7 @@ private struct QNDashboardView: View {
                             .foregroundStyle(.secondary)
                     }
                     if let latest {
-                        NavigationLink(destination: QNReportView(snapshot: latest, onExport: {})) {
+                        Button { report = latest } label: {
                             QNWeightCard(snapshot: latest, showsDisclosure: true)
                         }
                         .buttonStyle(.plain)
@@ -134,6 +135,9 @@ private struct QNDashboardView: View {
             .background(QNDesign.page.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarHidden(true)
+            .fullScreenCover(item: $report) { snapshot in
+                QNReportView(snapshot: snapshot, onExport: {})
+            }
         }
     }
 }
@@ -261,13 +265,18 @@ private struct QNSegmentBody: View {
                 ZStack {
                     Circle()
                         .fill(Color.secondary.opacity(0.20))
-                        .frame(width: proxy.size.width * 0.13)
-                        .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.09)
-                    regionButton("右臂", shape: Capsule(), x: 0.31, y: 0.39, width: 0.09, height: 0.38, rotation: 10, proxy: proxy)
-                    regionButton("左臂", shape: Capsule(), x: 0.69, y: 0.39, width: 0.09, height: 0.38, rotation: -10, proxy: proxy)
-                    regionButton("躯干", shape: RoundedRectangle(cornerRadius: 24, style: .continuous), x: 0.50, y: 0.38, width: 0.27, height: 0.38, proxy: proxy)
-                    regionButton("右腿", shape: Capsule(), x: 0.43, y: 0.76, width: 0.10, height: 0.38, rotation: 3, proxy: proxy)
-                    regionButton("左腿", shape: Capsule(), x: 0.57, y: 0.76, width: 0.10, height: 0.38, rotation: -3, proxy: proxy)
+                        .overlay(Circle().stroke(Color.primary.opacity(0.07), lineWidth: 1))
+                        .frame(width: proxy.size.width * 0.115)
+                        .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.10)
+                    Capsule()
+                        .fill(selected == "躯干" ? accent.opacity(0.88) : Color.secondary.opacity(0.20))
+                        .frame(width: proxy.size.width * 0.055, height: proxy.size.height * 0.08)
+                        .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.215)
+                    regionButton("右臂", shape: QNArmShape(mirrored: false), x: 0.335, y: 0.42, width: 0.11, height: 0.43, rotation: 4, proxy: proxy)
+                    regionButton("左臂", shape: QNArmShape(mirrored: true), x: 0.665, y: 0.42, width: 0.11, height: 0.43, rotation: -4, proxy: proxy)
+                    regionButton("躯干", shape: QNTorsoShape(), x: 0.50, y: 0.40, width: 0.29, height: 0.40, proxy: proxy)
+                    regionButton("右腿", shape: QNLegShape(mirrored: false), x: 0.435, y: 0.77, width: 0.12, height: 0.41, rotation: 1.5, proxy: proxy)
+                    regionButton("左腿", shape: QNLegShape(mirrored: true), x: 0.565, y: 0.77, width: 0.12, height: 0.41, rotation: -1.5, proxy: proxy)
                 }
             }
             .frame(height: 245)
@@ -305,6 +314,61 @@ private struct QNSegmentBody: View {
         .position(x: proxy.size.width * x, y: proxy.size.height * y)
         .accessibilityLabel("\(region)\(showFat ? "脂肪量" : "肌肉量")")
         .accessibilityValue(value(for: region).map { "\(store.displayWeightUnit.text(fromKilograms: $0, precision: 1)) \(store.displayWeightUnit.symbol)" } ?? "缺失")
+    }
+}
+
+private struct QNTorsoShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let x = rect.minX, y = rect.minY, w = rect.width, h = rect.height
+        var path = Path()
+        path.move(to: CGPoint(x: x + w * 0.38, y: y))
+        path.addCurve(to: CGPoint(x: x + w * 0.12, y: y + h * 0.16), control1: CGPoint(x: x + w * 0.31, y: y + h * 0.04), control2: CGPoint(x: x + w * 0.18, y: y + h * 0.07))
+        path.addCurve(to: CGPoint(x: x + w * 0.16, y: y + h * 0.52), control1: CGPoint(x: x + w * 0.06, y: y + h * 0.28), control2: CGPoint(x: x + w * 0.10, y: y + h * 0.42))
+        path.addCurve(to: CGPoint(x: x + w * 0.27, y: y + h * 0.88), control1: CGPoint(x: x + w * 0.20, y: y + h * 0.66), control2: CGPoint(x: x + w * 0.18, y: y + h * 0.78))
+        path.addCurve(to: CGPoint(x: x + w * 0.38, y: y + h), control1: CGPoint(x: x + w * 0.29, y: y + h * 0.96), control2: CGPoint(x: x + w * 0.34, y: y + h))
+        path.addLine(to: CGPoint(x: x + w * 0.62, y: y + h))
+        path.addCurve(to: CGPoint(x: x + w * 0.73, y: y + h * 0.88), control1: CGPoint(x: x + w * 0.66, y: y + h), control2: CGPoint(x: x + w * 0.71, y: y + h * 0.96))
+        path.addCurve(to: CGPoint(x: x + w * 0.84, y: y + h * 0.52), control1: CGPoint(x: x + w * 0.82, y: y + h * 0.78), control2: CGPoint(x: x + w * 0.80, y: y + h * 0.66))
+        path.addCurve(to: CGPoint(x: x + w * 0.88, y: y + h * 0.16), control1: CGPoint(x: x + w * 0.90, y: y + h * 0.42), control2: CGPoint(x: x + w * 0.94, y: y + h * 0.28))
+        path.addCurve(to: CGPoint(x: x + w * 0.62, y: y), control1: CGPoint(x: x + w * 0.82, y: y + h * 0.07), control2: CGPoint(x: x + w * 0.69, y: y + h * 0.04))
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct QNArmShape: Shape {
+    let mirrored: Bool
+    func path(in rect: CGRect) -> Path {
+        let x = rect.minX, y = rect.minY, w = rect.width, h = rect.height
+        var path = Path()
+        path.move(to: CGPoint(x: x + w * 0.20, y: y + h * 0.04))
+        path.addCurve(to: CGPoint(x: x + w * 0.80, y: y), control1: CGPoint(x: x + w * 0.38, y: y), control2: CGPoint(x: x + w * 0.64, y: y))
+        path.addCurve(to: CGPoint(x: x + w * 0.68, y: y + h * 0.52), control1: CGPoint(x: x + w * 0.88, y: y + h * 0.16), control2: CGPoint(x: x + w * 0.78, y: y + h * 0.37))
+        path.addCurve(to: CGPoint(x: x + w * 0.58, y: y + h * 0.93), control1: CGPoint(x: x + w * 0.62, y: y + h * 0.68), control2: CGPoint(x: x + w * 0.68, y: y + h * 0.84))
+        path.addCurve(to: CGPoint(x: x + w * 0.30, y: y + h * 0.94), control1: CGPoint(x: x + w * 0.51, y: y + h), control2: CGPoint(x: x + w * 0.37, y: y + h))
+        path.addCurve(to: CGPoint(x: x + w * 0.25, y: y + h * 0.54), control1: CGPoint(x: x + w * 0.18, y: y + h * 0.85), control2: CGPoint(x: x + w * 0.28, y: y + h * 0.68))
+        path.addCurve(to: CGPoint(x: x + w * 0.20, y: y + h * 0.04), control1: CGPoint(x: x + w * 0.19, y: y + h * 0.37), control2: CGPoint(x: x + w * 0.10, y: y + h * 0.16))
+        path.closeSubpath()
+        if mirrored { return path.applying(CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: rect.minX + rect.maxX, ty: 0)) }
+        return path
+    }
+}
+
+private struct QNLegShape: Shape {
+    let mirrored: Bool
+    func path(in rect: CGRect) -> Path {
+        let x = rect.minX, y = rect.minY, w = rect.width, h = rect.height
+        var path = Path()
+        path.move(to: CGPoint(x: x + w * 0.12, y: y))
+        path.addCurve(to: CGPoint(x: x + w * 0.86, y: y + h * 0.02), control1: CGPoint(x: x + w * 0.30, y: y - h * 0.02), control2: CGPoint(x: x + w * 0.70, y: y - h * 0.02))
+        path.addCurve(to: CGPoint(x: x + w * 0.67, y: y + h * 0.52), control1: CGPoint(x: x + w * 0.93, y: y + h * 0.18), control2: CGPoint(x: x + w * 0.75, y: y + h * 0.38))
+        path.addCurve(to: CGPoint(x: x + w * 0.65, y: y + h * 0.91), control1: CGPoint(x: x + w * 0.62, y: y + h * 0.67), control2: CGPoint(x: x + w * 0.72, y: y + h * 0.84))
+        path.addCurve(to: CGPoint(x: x + w * 0.32, y: y + h * 0.98), control1: CGPoint(x: x + w * 0.58, y: y + h), control2: CGPoint(x: x + w * 0.39, y: y + h * 1.01))
+        path.addCurve(to: CGPoint(x: x + w * 0.25, y: y + h * 0.55), control1: CGPoint(x: x + w * 0.20, y: y + h * 0.88), control2: CGPoint(x: x + w * 0.30, y: y + h * 0.70))
+        path.addCurve(to: CGPoint(x: x + w * 0.12, y: y), control1: CGPoint(x: x + w * 0.18, y: y + h * 0.37), control2: CGPoint(x: x + w * 0.03, y: y + h * 0.16))
+        path.closeSubpath()
+        if mirrored { return path.applying(CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: rect.minX + rect.maxX, ty: 0)) }
+        return path
     }
 }
 
@@ -516,15 +580,16 @@ private struct QNReportView: View {
         VStack(spacing: 0) {
             HStack {
                 Button { dismiss() } label: {
-                    Image(systemName: "chevron.left").font(.headline.weight(.semibold)).frame(width: 36, height: 36)
+                    Image(systemName: "chevron.left").font(.subheadline.weight(.bold)).frame(width: 32, height: 32)
                         .background(Color.primary.opacity(0.07)).clipShape(Circle())
                 }
                 Spacer()
                 Text("测量报告").font(.headline)
                 Spacer()
-                Color.clear.frame(width: 36, height: 36)
+                Color.clear.frame(width: 32, height: 32)
             }
-            .padding(.horizontal, 14).padding(.vertical, 6)
+            .padding(.horizontal, 14)
+            .frame(height: 44)
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
