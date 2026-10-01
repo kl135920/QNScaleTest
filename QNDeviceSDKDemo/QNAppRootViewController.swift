@@ -149,7 +149,7 @@ private struct QNWeightCard: View {
                 if showsDisclosure { Image(systemName: "chevron.right").font(.headline).foregroundStyle(.tertiary) }
             }
             HStack(alignment: .lastTextBaseline, spacing: 7) {
-                Text(snapshot.weight.map { String(format: "%.1f", $0) } ?? "—")
+                Text(snapshot.weight.map { String(format: "%.2f", $0) } ?? "—")
                     .font(.system(size: 58, weight: .bold, design: .rounded).monospacedDigit())
                 Text("kg").font(.title2.weight(.semibold)).foregroundStyle(.secondary)
             }
@@ -316,7 +316,7 @@ private struct QNMeasurementView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("测量").font(.largeTitle.weight(.bold))
                         Text(store.serviceState).font(.subheadline).foregroundStyle(.secondary)
-                        HStack { Text("实时重量").foregroundStyle(.secondary); Spacer(); Text(store.weight.map { String(format: "%.1f kg", $0) } ?? "—").font(.title2.weight(.semibold).monospacedDigit()) }
+                        HStack { Text("实时重量").foregroundStyle(.secondary); Spacer(); Text(store.weight.map { String(format: "%.2f kg", $0) } ?? "—").font(.title2.weight(.semibold).monospacedDigit()) }
                             .padding(16).background(QNDesign.card).clipShape(RoundedRectangle(cornerRadius: 16))
                         Text(store.measurementState).font(.headline)
                         Text("请赤脚站上体脂秤，并握住手柄。名称 QN-Scale 与型号仅作提示，可手动选择扫描到的设备。").font(.footnote).foregroundStyle(.secondary)
@@ -374,13 +374,19 @@ private struct QNTrendView: View {
                     else {
                         QNTrendChart(records: filtered, metric: metric)
                         let values = filtered.compactMap { $0.metrics[metric] }
-                        VStack(alignment: .leading, spacing: 8) { Text("统计").font(.headline); Text("当前：\(values.last.map { String(format: "%.1f", $0) } ?? "—")    起始：\(values.first.map { String(format: "%.1f", $0) } ?? "—")"); if let min = values.min(), let max = values.max() { Text("最低：\(String(format: "%.1f", min))    最高：\(String(format: "%.1f", max))    变化：\(String(format: "%+.1f", (values.last ?? min) - (values.first ?? min)))") } }.font(.subheadline).foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 8) { Text("统计").font(.headline); Text("当前：\(statValue(values.last))    起始：\(statValue(values.first))"); if let min = values.min(), let max = values.max() { Text("最低：\(statValue(min))    最高：\(statValue(max))    变化：\(statValue((values.last ?? min) - (values.first ?? min), signed: true))") } }.font(.subheadline).foregroundStyle(.secondary)
                         if filtered.count == 1 { Text("需要更多测量数据才能形成趋势").font(.footnote).foregroundStyle(.secondary) }
                     }
                 }.padding(20)
             }.background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea()).navigationBarTitleDisplayMode(.inline)
                 .sheet(isPresented: $showComparison) { QNComparisonPickerView() }
         }
+    }
+
+    private func statValue(_ value: Double?, signed: Bool = false) -> String {
+        guard let value else { return "—" }
+        let precision = metric == "weight" ? 2 : 1
+        return String(format: signed ? "%+.\(precision)f" : "%.\(precision)f", value)
     }
 }
 
@@ -723,7 +729,7 @@ private struct QNProfileView: View {
                     }
                     Text("身体目标").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
                     Button { showEditor = true } label: {
-                        QNSettingsRow(icon: "target", title: "目标体重", value: store.profile?.targetWeight.map { String(format: "%.1f kg", $0) } ?? "未设置")
+                        QNSettingsRow(icon: "target", title: "目标体重", value: store.profile?.targetWeight.map { String(format: "%.2f kg", $0) } ?? "未设置")
                     }.buttonStyle(.plain).qnCard(cornerRadius: 18)
                     Text("数据管理").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
                     VStack(spacing: 0) {
@@ -773,7 +779,7 @@ private struct QNHistoryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var deleting: QNMeasurementSnapshot?
     @State private var report: QNMeasurementSnapshot?
-    var body: some View { NavigationView { List { ForEach(store.records) { snapshot in Button { report=snapshot } label: { HStack { VStack(alignment:.leading) { Text(snapshot.displayDate); Text(snapshot.status == "abnormal" ? "异常结果已保留" : "正常结果").font(.caption).foregroundStyle(snapshot.isAbnormal ? .orange : .secondary) }; Spacer(); VStack(alignment:.trailing) { Text(snapshot.weight.map { String(format:"%.1f kg",$0) } ?? "—"); Text(snapshot.bodyFatRate.map { String(format:"%.1f",$0) } ?? "—").font(.caption).foregroundStyle(.secondary) } } }.buttonStyle(.plain).swipeActions { Button(role:.destructive) { deleting=snapshot } label: { Label("删除", systemImage:"trash") } } } }.navigationTitle("历史记录").toolbar { ToolbarItem(placement:.cancellationAction) { Button("完成") { dismiss() } } }.alert("删除这条测量？", isPresented: Binding(get:{deleting != nil},set:{if !$0{deleting=nil}})) { Button("取消",role:.cancel){deleting=nil}; Button("删除",role:.destructive){if let deleting{store.delete(deleting)};deleting=nil} }.sheet(item:$report) { QNReportSheet(snapshot:$0,onExport:{}) } } }
+    var body: some View { NavigationView { List { ForEach(store.records) { snapshot in Button { report=snapshot } label: { HStack { VStack(alignment:.leading) { Text(snapshot.displayDate); Text(snapshot.status == "abnormal" ? "异常结果已保留" : "正常结果").font(.caption).foregroundStyle(snapshot.isAbnormal ? .orange : .secondary) }; Spacer(); VStack(alignment:.trailing) { Text(snapshot.weight.map { String(format:"%.2f kg",$0) } ?? "—"); Text(snapshot.bodyFatRate.map { String(format:"%.1f",$0) } ?? "—").font(.caption).foregroundStyle(.secondary) } } }.buttonStyle(.plain).swipeActions { Button(role:.destructive) { deleting=snapshot } label: { Label("删除", systemImage:"trash") } } } }.navigationTitle("历史记录").toolbar { ToolbarItem(placement:.cancellationAction) { Button("完成") { dismiss() } } }.alert("删除这条测量？", isPresented: Binding(get:{deleting != nil},set:{if !$0{deleting=nil}})) { Button("取消",role:.cancel){deleting=nil}; Button("删除",role:.destructive){if let deleting{store.delete(deleting)};deleting=nil} }.sheet(item:$report) { QNReportSheet(snapshot:$0,onExport:{}) } } }
 }
 
 private struct QNDeveloperView: View {
@@ -804,7 +810,7 @@ private struct QNProfileEditorView: View {
         _gender = State(initialValue: profile?.gender ?? "male")
         _birthday = State(initialValue: profile?.birthday ?? Calendar.current.date(byAdding: .year, value: -30, to: Date())!)
         _height = State(initialValue: profile.map { String(format: "%.0f", $0.height) } ?? "169")
-        _targetWeight = State(initialValue: profile?.targetWeight.map { String(format: "%.1f", $0) } ?? "")
+        _targetWeight = State(initialValue: profile?.targetWeight.map { String(format: "%.2f", $0) } ?? "")
     }
 
     var body: some View {
@@ -846,7 +852,7 @@ private struct QNProfileEditorView: View {
                     }.qnCard()
                     Text("身体目标").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
                     Button { showTargetWeightPicker = true } label: {
-                        QNProfileValueRow(title: "目标体重", value: Double(targetWeight).map { String(format: "%.1f kg", $0) } ?? "未设置")
+                        QNProfileValueRow(title: "目标体重", value: Double(targetWeight).map { String(format: "%.2f kg", $0) } ?? "未设置")
                     }.buttonStyle(.plain).qnCard(cornerRadius: 18)
                     Text("新测量使用当前资料，历史记录保留原资料。")
                         .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 4)
@@ -878,7 +884,7 @@ private struct QNProfileEditorView: View {
                             }
                         } else if showTargetWeightPicker {
                             QNTargetWeightEditorPanel(initialValue: Double(targetWeight), onCancel: { showTargetWeightPicker = false }) { value in
-                                targetWeight = value.map { String(format: "%.1f", $0) } ?? ""; showTargetWeightPicker = false
+                                targetWeight = value.map { String(format: "%.2f", $0) } ?? ""; showTargetWeightPicker = false
                             }
                         }
                     }
@@ -987,7 +993,7 @@ private struct QNTargetWeightEditorPanel: View {
     let onCancel: () -> Void
     let onDone: (Double?) -> Void
     init(initialValue: Double?, onCancel: @escaping () -> Void, onDone: @escaping (Double?) -> Void) {
-        _text = State(initialValue: initialValue.map { String(format: "%.1f", $0) } ?? "")
+        _text = State(initialValue: initialValue.map { String(format: "%.2f", $0) } ?? "")
         self.onCancel = onCancel; self.onDone = onDone
     }
     private var parsedValue: Double? { Double(text.replacingOccurrences(of: ",", with: ".")) }
