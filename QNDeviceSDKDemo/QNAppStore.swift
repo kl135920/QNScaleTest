@@ -1,6 +1,22 @@
 import Foundation
 import SwiftUI
 
+enum QNDisplayWeightUnit: String, CaseIterable, Identifiable {
+    case kilogram
+    case jin
+
+    static let defaultsKey = "QNScaleTest.displayWeightUnit"
+    var id: String { rawValue }
+    var symbol: String { self == .jin ? "斤" : "kg" }
+    var title: String { self == .jin ? "斤" : "千克" }
+
+    func fromKilograms(_ value: Double) -> Double { self == .jin ? value * 2 : value }
+    func toKilograms(_ value: Double) -> Double { self == .jin ? value / 2 : value }
+    func text(fromKilograms value: Double, precision: Int = 2) -> String {
+        String(format: precision == 1 ? "%.1f" : "%.2f", fromKilograms(value))
+    }
+}
+
 struct QNDeviceRow: Identifiable {
     let id: String
     let name: String
@@ -20,6 +36,9 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
     @Published private(set) var lastError: String?
     @Published private(set) var pendingMeasurement: [String: Any]?
     @Published private(set) var lastSavedMeasurement: QNMeasurementSnapshot?
+    @Published var displayWeightUnit: QNDisplayWeightUnit {
+        didSet { UserDefaults.standard.set(displayWeightUnit.rawValue, forKey: QNDisplayWeightUnit.defaultsKey) }
+    }
 
     let service: QNScaleService
     let repository: QNMeasurementRepository?
@@ -27,6 +46,7 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
     private let pendingURL: URL
 
     override init() {
+        displayWeightUnit = QNDisplayWeightUnit(rawValue: UserDefaults.standard.string(forKey: QNDisplayWeightUnit.defaultsKey) ?? "") ?? .kilogram
         service = QNScaleService.shared()
         repository = try? QNMeasurementRepository()
         pendingURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("QNScaleTest.pending-measurement.json")

@@ -139,6 +139,7 @@ private struct QNDashboardView: View {
 }
 
 private struct QNWeightCard: View {
+    @EnvironmentObject private var store: QNAppStore
     let snapshot: QNMeasurementSnapshot
     var showsDisclosure = false
     var body: some View {
@@ -149,9 +150,9 @@ private struct QNWeightCard: View {
                 if showsDisclosure { Image(systemName: "chevron.right").font(.headline).foregroundStyle(.tertiary) }
             }
             HStack(alignment: .lastTextBaseline, spacing: 7) {
-                Text(snapshot.weight.map { String(format: "%.2f", $0) } ?? "—")
+                Text(snapshot.weight.map { store.displayWeightUnit.text(fromKilograms: $0) } ?? "—")
                     .font(.system(size: 58, weight: .bold, design: .rounded).monospacedDigit())
-                Text("kg").font(.title2.weight(.semibold)).foregroundStyle(.secondary)
+                Text(store.displayWeightUnit.symbol).font(.title2.weight(.semibold)).foregroundStyle(.secondary)
             }
             Divider()
             HStack {
@@ -169,12 +170,15 @@ private struct QNWeightCard: View {
 }
 
 private struct QNMetricCard: View {
+    @EnvironmentObject private var store: QNAppStore
     let title: String
     let value: Double?
     let definition: MetricDefinition
     var icon: String? = nil
     var tint: Color = QNDesign.blue
     var evaluation: String? = nil
+    private var displayValue: Double? { definition.unit == "kg" ? value.map(store.displayWeightUnit.fromKilograms) : value }
+    private var displayUnit: String? { definition.unit == "kg" ? store.displayWeightUnit.symbol : definition.unit }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -189,10 +193,10 @@ private struct QNMetricCard: View {
                 Text(title).font(.subheadline.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
             }
             HStack(alignment: .lastTextBaseline, spacing: 3) {
-                Text(value.map { Self.format($0, precision: definition.precision) } ?? "—")
+                Text(displayValue.map { Self.format($0, precision: definition.precision) } ?? "—")
                     .font(.system(size: 27, weight: .bold, design: .rounded).monospacedDigit())
                     .minimumScaleFactor(0.75)
-                if let unit = definition.unit { Text(unit).font(.caption.weight(.medium)).foregroundStyle(.secondary) }
+                if let displayUnit { Text(displayUnit).font(.caption.weight(.medium)).foregroundStyle(.secondary) }
             }
             if let evaluation {
                 Text(evaluation)
@@ -237,6 +241,7 @@ private struct QNSegmentCard: View {
 }
 
 private struct QNSegmentBody: View {
+    @EnvironmentObject private var store: QNAppStore
     let snapshot: QNMeasurementSnapshot
     let showFat: Bool
     @State private var selected = "躯干"
@@ -272,8 +277,8 @@ private struct QNSegmentBody: View {
                         VStack(spacing: 3) {
                             Text(region).font(.caption).foregroundStyle(.secondary)
                             HStack(alignment: .lastTextBaseline, spacing: 2) {
-                                Text(value(for: region).map { String(format: "%.1f", $0) } ?? "—").font(.subheadline.weight(.bold).monospacedDigit())
-                                Text("kg").font(.caption2).foregroundStyle(.secondary)
+                                Text(value(for: region).map { store.displayWeightUnit.text(fromKilograms: $0, precision: 1) } ?? "—").font(.subheadline.weight(.bold).monospacedDigit())
+                                Text(store.displayWeightUnit.symbol).font(.caption2).foregroundStyle(.secondary)
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -299,7 +304,7 @@ private struct QNSegmentBody: View {
         }
         .position(x: proxy.size.width * x, y: proxy.size.height * y)
         .accessibilityLabel("\(region)\(showFat ? "脂肪量" : "肌肉量")")
-        .accessibilityValue(value(for: region).map { String(format: "%.1f", $0) } ?? "缺失")
+        .accessibilityValue(value(for: region).map { "\(store.displayWeightUnit.text(fromKilograms: $0, precision: 1)) \(store.displayWeightUnit.symbol)" } ?? "缺失")
     }
 }
 
@@ -316,7 +321,7 @@ private struct QNMeasurementView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("测量").font(.largeTitle.weight(.bold))
                         Text(store.serviceState).font(.subheadline).foregroundStyle(.secondary)
-                        HStack { Text("实时重量").foregroundStyle(.secondary); Spacer(); Text(store.weight.map { String(format: "%.2f kg", $0) } ?? "—").font(.title2.weight(.semibold).monospacedDigit()) }
+                        HStack { Text("实时重量").foregroundStyle(.secondary); Spacer(); Text(store.weight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "—").font(.title2.weight(.semibold).monospacedDigit()) }
                             .padding(16).background(QNDesign.card).clipShape(RoundedRectangle(cornerRadius: 16))
                         Text(store.measurementState).font(.headline)
                         Text("请赤脚站上体脂秤，并握住手柄。名称 QN-Scale 与型号仅作提示，可手动选择扫描到的设备。").font(.footnote).foregroundStyle(.secondary)
@@ -385,8 +390,12 @@ private struct QNTrendView: View {
 
     private func statValue(_ value: Double?, signed: Bool = false) -> String {
         guard let value else { return "—" }
+        let massMetrics = ["weight", "fatMass", "muscleMass", "skeletalMuscleMass"]
+        let isMass = massMetrics.contains(metric)
+        let displayValue = isMass ? store.displayWeightUnit.fromKilograms(value) : value
         let precision = metric == "weight" ? 2 : 1
-        return String(format: signed ? "%+.\(precision)f" : "%.\(precision)f", value)
+        let number = String(format: signed ? "%+.\(precision)f" : "%.\(precision)f", displayValue)
+        return isMass ? "\(number) \(store.displayWeightUnit.symbol)" : number
     }
 }
 
@@ -452,6 +461,7 @@ private struct QNComparisonPickerView: View {
 }
 
 private struct QNComparisonView: View {
+    @EnvironmentObject private var store: QNAppStore
     let comparison: QNMeasurementComparison
 
     var body: some View {
@@ -488,18 +498,35 @@ private struct QNComparisonView: View {
 
     private func format(_ value: Double?, precision: Int, unit: String?) -> String {
         guard let value else { return "—" }
+        let displayValue = unit == "kg" ? store.displayWeightUnit.fromKilograms(value) : value
         let format = precision == 0 ? "%.0f" : (precision == 1 ? "%.1f" : "%.2f")
-        let number = String(format: format, value)
-        return unit.map { "\(number) \($0)" } ?? number
+        let number = String(format: format, displayValue)
+        let displayUnit = unit == "kg" ? store.displayWeightUnit.symbol : unit
+        return displayUnit.map { "\(number) \($0)" } ?? number
     }
 }
 
 private struct QNReportView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: QNAppStore
     let snapshot: QNMeasurementSnapshot
     let onExport: () -> Void
     @State private var showRaw = false
     var body: some View {
-        ScrollView {
+        VStack(spacing: 0) {
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left").font(.headline.weight(.semibold)).frame(width: 36, height: 36)
+                        .background(Color.primary.opacity(0.07)).clipShape(Circle())
+                }
+                Spacer()
+                Text("测量报告").font(.headline)
+                Spacer()
+                Color.clear.frame(width: 36, height: 36)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 6)
+            Divider()
+            ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
@@ -551,21 +578,23 @@ private struct QNReportView: View {
                     QNButton(title: "导出本次原始 JSON", systemImage: "square.and.arrow.up", action: onExport)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 14)
+            }
         }
         .background(QNDesign.page.ignoresSafeArea())
-        .navigationTitle("测量报告")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarHidden(true)
     }
     @ViewBuilder private func reportCard(_ type: Int) -> some View {
         let definition = QNMetricCatalog.definition(for: type)
         let value = snapshot.metrics[Self.key(for: type)] ?? snapshot.metrics["type\(type)"]
+        let displayValue = definition.unit == "kg" ? value.map(store.displayWeightUnit.fromKilograms) : value
+        let displayUnit = definition.unit == "kg" ? store.displayWeightUnit.symbol : definition.unit
         VStack(alignment: .leading, spacing: 8) {
             Text(definition.title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             HStack(alignment: .lastTextBaseline, spacing: 3) {
-                Text(Self.format(value, precision: definition.precision))
+                Text(Self.format(displayValue, precision: definition.precision))
                     .font(.system(size: 23, weight: .bold, design: .rounded).monospacedDigit())
                     .minimumScaleFactor(0.7)
-                if let unit = definition.unit { Text(unit).font(.caption2).foregroundStyle(.secondary) }
+                if let displayUnit { Text(displayUnit).font(.caption2).foregroundStyle(.secondary) }
             }
             if let evaluation = QNReferenceRangeService.evaluation(for: Self.key(for: type), value: value, gender: snapshot.gender) {
                 Text(evaluation.label)
@@ -589,14 +618,10 @@ private struct QNReportView: View {
 }
 
 private struct QNReportSheet: View {
-    @Environment(\.dismiss) private var dismiss
     let snapshot: QNMeasurementSnapshot
     let onExport: () -> Void
     var body: some View {
-        NavigationView {
-            QNReportView(snapshot: snapshot, onExport: onExport)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("完成") { dismiss() } } }
-        }
+        QNReportView(snapshot: snapshot, onExport: onExport)
     }
 }
 
@@ -627,6 +652,7 @@ private struct QNAllItemsView: View {
 }
 
 private struct QNMetricReferenceView: View {
+    @EnvironmentObject private var store: QNAppStore
     let snapshot: QNMeasurementSnapshot
 
     var body: some View {
@@ -639,8 +665,8 @@ private struct QNMetricReferenceView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("肌肉量").font(.headline)
                     HStack(alignment: .lastTextBaseline, spacing: 4) {
-                        Text(snapshot.muscleMass.map { String(format: "%.1f", $0) } ?? "—").font(.system(size: 38, weight: .bold, design: .rounded))
-                        Text("kg").foregroundStyle(.secondary)
+                        Text(snapshot.muscleMass.map { store.displayWeightUnit.text(fromKilograms: $0, precision: 1) } ?? "—").font(.system(size: 38, weight: .bold, design: .rounded))
+                        Text(store.displayWeightUnit.symbol).foregroundStyle(.secondary)
                     }
                     Text("当前未采用未经确认的肌肉量参考范围，仅展示 SDK 原始数值和历史趋势。")
                         .font(.footnote).foregroundStyle(.secondary)
@@ -729,8 +755,20 @@ private struct QNProfileView: View {
                     }
                     Text("身体目标").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
                     Button { showEditor = true } label: {
-                        QNSettingsRow(icon: "target", title: "目标体重", value: store.profile?.targetWeight.map { String(format: "%.2f kg", $0) } ?? "未设置")
+                        QNSettingsRow(icon: "target", title: "目标体重", value: store.profile?.targetWeight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "未设置")
                     }.buttonStyle(.plain).qnCard(cornerRadius: 18)
+                    Text("显示设置").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
+                    HStack {
+                        Image(systemName: "scalemass").font(.headline).foregroundStyle(QNDesign.blue).frame(width: 26)
+                        Text("体重单位").font(.body.weight(.medium))
+                        Spacer()
+                        Picker("体重单位", selection: $store.displayWeightUnit) {
+                            Text("kg").tag(QNDisplayWeightUnit.kilogram)
+                            Text("斤").tag(QNDisplayWeightUnit.jin)
+                        }
+                        .pickerStyle(.segmented).frame(width: 150)
+                    }
+                    .padding(16).qnCard(cornerRadius: 18)
                     Text("数据管理").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
                     VStack(spacing: 0) {
                         Button { showHistory = true } label: { QNSettingsRow(icon: "clock.arrow.circlepath", title: "历史记录", value: "\(store.records.count) 条") }.buttonStyle(.plain)
@@ -779,7 +817,7 @@ private struct QNHistoryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var deleting: QNMeasurementSnapshot?
     @State private var report: QNMeasurementSnapshot?
-    var body: some View { NavigationView { List { ForEach(store.records) { snapshot in Button { report=snapshot } label: { HStack { VStack(alignment:.leading) { Text(snapshot.displayDate); Text(snapshot.status == "abnormal" ? "异常结果已保留" : "正常结果").font(.caption).foregroundStyle(snapshot.isAbnormal ? .orange : .secondary) }; Spacer(); VStack(alignment:.trailing) { Text(snapshot.weight.map { String(format:"%.2f kg",$0) } ?? "—"); Text(snapshot.bodyFatRate.map { String(format:"%.1f",$0) } ?? "—").font(.caption).foregroundStyle(.secondary) } } }.buttonStyle(.plain).swipeActions { Button(role:.destructive) { deleting=snapshot } label: { Label("删除", systemImage:"trash") } } } }.navigationTitle("历史记录").toolbar { ToolbarItem(placement:.cancellationAction) { Button("完成") { dismiss() } } }.alert("删除这条测量？", isPresented: Binding(get:{deleting != nil},set:{if !$0{deleting=nil}})) { Button("取消",role:.cancel){deleting=nil}; Button("删除",role:.destructive){if let deleting{store.delete(deleting)};deleting=nil} }.sheet(item:$report) { QNReportSheet(snapshot:$0,onExport:{}) } } }
+    var body: some View { NavigationView { List { ForEach(store.records) { snapshot in Button { report=snapshot } label: { HStack { VStack(alignment:.leading) { Text(snapshot.displayDate); Text(snapshot.status == "abnormal" ? "异常结果已保留" : "正常结果").font(.caption).foregroundStyle(snapshot.isAbnormal ? .orange : .secondary) }; Spacer(); VStack(alignment:.trailing) { Text(snapshot.weight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "—"); Text(snapshot.bodyFatRate.map { String(format:"%.1f",$0) } ?? "—").font(.caption).foregroundStyle(.secondary) } } }.buttonStyle(.plain).swipeActions { Button(role:.destructive) { deleting=snapshot } label: { Label("删除", systemImage:"trash") } } } }.navigationTitle("历史记录").toolbar { ToolbarItem(placement:.cancellationAction) { Button("完成") { dismiss() } } }.alert("删除这条测量？", isPresented: Binding(get:{deleting != nil},set:{if !$0{deleting=nil}})) { Button("取消",role:.cancel){deleting=nil}; Button("删除",role:.destructive){if let deleting{store.delete(deleting)};deleting=nil} }.sheet(item:$report) { QNReportSheet(snapshot:$0,onExport:{}) } } }
 }
 
 private struct QNDeveloperView: View {
@@ -810,7 +848,7 @@ private struct QNProfileEditorView: View {
         _gender = State(initialValue: profile?.gender ?? "male")
         _birthday = State(initialValue: profile?.birthday ?? Calendar.current.date(byAdding: .year, value: -30, to: Date())!)
         _height = State(initialValue: profile.map { String(format: "%.0f", $0.height) } ?? "169")
-        _targetWeight = State(initialValue: profile?.targetWeight.map { String(format: "%.2f", $0) } ?? "")
+        _targetWeight = State(initialValue: profile?.targetWeight.map { String($0) } ?? "")
     }
 
     var body: some View {
@@ -852,7 +890,7 @@ private struct QNProfileEditorView: View {
                     }.qnCard()
                     Text("身体目标").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
                     Button { showTargetWeightPicker = true } label: {
-                        QNProfileValueRow(title: "目标体重", value: Double(targetWeight).map { String(format: "%.2f kg", $0) } ?? "未设置")
+                        QNProfileValueRow(title: "目标体重", value: Double(targetWeight).map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "未设置")
                     }.buttonStyle(.plain).qnCard(cornerRadius: 18)
                     Text("新测量使用当前资料，历史记录保留原资料。")
                         .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 4)
@@ -883,8 +921,8 @@ private struct QNProfileEditorView: View {
                                 height = String(format: "%.0f", value); showHeightPicker = false
                             }
                         } else if showTargetWeightPicker {
-                            QNTargetWeightEditorPanel(initialValue: Double(targetWeight), onCancel: { showTargetWeightPicker = false }) { value in
-                                targetWeight = value.map { String(format: "%.2f", $0) } ?? ""; showTargetWeightPicker = false
+                            QNTargetWeightEditorPanel(initialValue: Double(targetWeight).map(store.displayWeightUnit.fromKilograms), unit: store.displayWeightUnit.symbol, onCancel: { showTargetWeightPicker = false }) { value in
+                                targetWeight = value.map { String(store.displayWeightUnit.toKilograms($0)) } ?? ""; showTargetWeightPicker = false
                             }
                         }
                     }
@@ -990,11 +1028,12 @@ private struct QNCompactNumberPickerPanel: View {
 
 private struct QNTargetWeightEditorPanel: View {
     @State private var text: String
+    let unit: String
     let onCancel: () -> Void
     let onDone: (Double?) -> Void
-    init(initialValue: Double?, onCancel: @escaping () -> Void, onDone: @escaping (Double?) -> Void) {
+    init(initialValue: Double?, unit: String, onCancel: @escaping () -> Void, onDone: @escaping (Double?) -> Void) {
         _text = State(initialValue: initialValue.map { String(format: "%.2f", $0) } ?? "")
-        self.onCancel = onCancel; self.onDone = onDone
+        self.unit = unit; self.onCancel = onCancel; self.onDone = onDone
     }
     private var parsedValue: Double? { Double(text.replacingOccurrences(of: ",", with: ".")) }
     private var isValid: Bool { text.isEmpty || parsedValue.map { $0 > 0 && $0 <= 500 } == true }
@@ -1008,12 +1047,12 @@ private struct QNTargetWeightEditorPanel: View {
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.center)
                         .font(.system(size: 38, weight: .bold, design: .rounded).monospacedDigit())
-                    Text("kg").font(.headline).foregroundStyle(.secondary)
+                    Text(unit).font(.headline).foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 18).padding(.vertical, 14)
                 .background(Color.primary.opacity(0.055))
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                if !isValid { Text("请输入大于 0 且不超过 500 kg 的数值").font(.footnote).foregroundStyle(.red) }
+                if !isValid { Text("请输入大于 0 且不超过 500 \(unit) 的数值").font(.footnote).foregroundStyle(.red) }
                 Button("清除目标体重") { text = "" }.font(.subheadline.weight(.semibold)).foregroundStyle(.red)
             }
             .padding(.horizontal, 20).padding(.vertical, 18)
