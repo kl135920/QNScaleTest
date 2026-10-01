@@ -429,19 +429,131 @@ private struct QNTrendView: View {
 }
 
 private struct QNTrendChart: View {
+    @EnvironmentObject private var store: QNAppStore
     let records: [QNMeasurementSnapshot]
     let metric: String
+
     var body: some View {
-        let values = records.compactMap { $0.metrics[metric] }
-        return Canvas { context, size in
-            guard values.count > 0 else { return }
-            let minValue = values.min() ?? 0; let maxValue = values.max() ?? 1; let span = max(maxValue - minValue, 0.1)
-            var path = Path()
-            for (index, value) in values.enumerated() { let x = values.count == 1 ? size.width / 2 : size.width * CGFloat(index) / CGFloat(values.count - 1); let y = size.height - CGFloat((value - minValue) / span) * (size.height - 20) - 10; if index == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) } }
-            context.stroke(path, with: .color(QNDesign.blue), lineWidth: 3)
-            for (index, value) in values.enumerated() { let x = values.count == 1 ? size.width / 2 : size.width * CGFloat(index) / CGFloat(values.count - 1); let y = size.height - CGFloat((value - minValue) / span) * (size.height - 20) - 10; context.fill(Path(ellipseIn: CGRect(x: x - 5, y: y - 5, width: 10, height: 10)), with: .color(QNDesign.blue)) }
-        }.frame(height: 220).padding(16).qnCard(cornerRadius: 20).accessibilityLabel("趋势折线图，共 \(records.count) 条真实测量记录")
+        let points = records.compactMap { record -> (record: QNMeasurementSnapshot, value: Double)? in
+            record.metrics[metric].map { (record, $0) }
+        }
+        return VStack(spacing: 10) {
+            HStack {
+                Text("单位：\(displayUnit)")
+                Spacer()
+                if points.count > 4 {
+                    Label("左右滑动查看更多", systemImage: "arrow.left.and.right")
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            GeometryReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    Canvas { context, size in
+                        drawChart(context: &context, size: size, points: points)
+                    }
+                    .frame(width: max(proxy.size.width, CGFloat(max(points.count - 1, 1)) * 76 + 70), height: 250)
+                }
+            }
+            .frame(height: 250)
+        }
+        .padding(16)
+        .qnCard(cornerRadius: 20)
+        .accessibilityLabel("趋势折线图，共 \(points.count) 条真实测量记录")
     }
+
+    private var isMassMetric: Bool {
+        ["weight", "fatMass", "muscleMass", "skeletalMuscleMass"].contains(metric)
+    }
+
+    private var displayUnit: String {
+        if isMassMetric { return store.displayWeightUnit.symbol }
+        if ["bodyFatRate", "bodyWaterRate"].contains(metric) { return "%" }
+        if ["bmi", "smi"].contains(metric) { return "kg/m²" }
+        if metric == "visceralFat" { return "级" }
+        return "—"
+    }
+
+    private func displayValue(_ value: Double) -> Double {
+        isMassMetric ? store.displayWeightUnit.fromKilograms(value) : value
+    }
+
+    private func valueText(_ value: Double) -> String {
+        String(format: metric == "weight" ? "%.2f" : "%.1f", displayValue(value))
+    }
+
+    private func drawChart(context: inout GraphicsContext, size: CGSize, points: [(record: QNMeasurementSnapshot, value: Double)]) {
+        guard !points.isEmpty else { return }
+        let values = points.map { displayValue($0.value) }
+        let rawMin = values.min() ?? 0
+        let rawMax = values.max() ?? 1
+        let rawSpan = max(rawMax - rawMin, 0.1)
+        let lower = rawMin - rawSpan * 0.12
+        let upper = rawMax + rawSpan * 0.16
+        let span = max(upper - lower, 0.1)
+        let plotLeft: CGFloat = 8
+        let plotRight = size.width - 42
+        let plotTop: CGFloat = 22
+        let plotBottom: CGFloat = 205
+
+        let chartPoints = values.enumerated().map { index, value -> CGPoint in
+            let x = values.count == 1 ? (plotLeft + plotRight) / 2 : plotLeft + (plotRight - plotLeft) * CGFloat(index) / CGFloat(values.count - 1)
+            let y = plotBottom - CGFloat((value - lower) / span) * (plotBottom - plotTop)
+            return CGPoint(x: x, y: y)
+        }
+
+        for point in chartPoints {
+            var grid = Path()
+            grid.move(to: CGPoint(x: point.x, y: plotTop))
+            grid.addLine(to: CGPoint(x: point.x, y: plotBottom))
+            context.stroke(grid, with: .color(Color.secondary.opacity(0.18)), style: StrokeStyle(lineWidth: 1, dash: [4, 6]))
+        }
+
+        for index in 0...3 {
+            let fraction = Double(index) / 3
+            let y = plotBottom - CGFloat(fraction) * (plotBottom - plotTop)
+            let axisValue = lower + fraction * span
+            context.draw(Text(valueText(axisValue)).font(.caption2).foregroundColor(.secondary), at: CGPoint(x: size.width - 2, y: y), anchor: .trailing)
+        }
+
+        let line = smoothPath(chartPoints)
+        var area = line
+        if let first = chartPoints.first, let last = chartPoints.last {
+            area.addLine(to: CGPoint(x: last.x, y: plotBottom))
+            area.addLine(to: CGPoint(x: first.x, y: plotBottom))
+            area.closeSubpath()
+            context.fill(area, with: .linearGradient(Gradient(colors: [QNDesign.blue.opacity(0.34), QNDesign.blue.opacity(0.03)]), startPoint: CGPoint(x: 0, y: plotTop), endPoint: CGPoint(x: 0, y: plotBottom)))
+        }
+        context.stroke(line, with: .color(QNDesign.blue), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+
+        for (index, point) in chartPoints.enumerated() {
+            context.fill(Path(ellipseIn: CGRect(x: point.x - 4, y: point.y - 4, width: 8, height: 8)), with: .color(Color(uiColor: .systemBackground)))
+            context.stroke(Path(ellipseIn: CGRect(x: point.x - 4, y: point.y - 4, width: 8, height: 8)), with: .color(QNDesign.blue), lineWidth: 2)
+            context.draw(Text(valueText(values[index])).font(.caption2.weight(.semibold)).foregroundColor(QNDesign.blue), at: CGPoint(x: point.x, y: point.y - 8), anchor: .bottom)
+            context.draw(Text(Self.dateFormatter.string(from: points[index].record.measureTime)).font(.caption2).foregroundColor(.secondary), at: CGPoint(x: point.x, y: plotBottom + 14), anchor: .top)
+        }
+    }
+
+    private func smoothPath(_ points: [CGPoint]) -> Path {
+        var path = Path()
+        guard let first = points.first else { return path }
+        path.move(to: first)
+        for index in 1..<points.count {
+            let previous = points[index - 1]
+            let current = points[index]
+            let middleX = (previous.x + current.x) / 2
+            path.addCurve(to: current, control1: CGPoint(x: middleX, y: previous.y), control2: CGPoint(x: middleX, y: current.y))
+        }
+        return path
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "MM/dd HH:mm"
+        return formatter
+    }()
 }
 
 private struct QNComparisonPickerView: View {
@@ -499,8 +611,9 @@ private struct QNComparisonView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("体重变化").font(.headline)
-                        Text(format(comparison.rows.first?.difference, precision: 2, unit: "kg"))
-                            .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
+                        if let weightRow = comparison.rows.first(where: { $0.type == 1 }) {
+                            differenceView(weightRow, font: .system(size: 34, weight: .bold, design: .rounded))
+                        }
                         Text("起点 \(comparison.start.displayDate) → 终点 \(comparison.end.displayDate)，相隔 \(comparison.intervalDays) 天").font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -529,11 +642,32 @@ private struct QNComparisonView: View {
             HStack {
                 Text(row.title).font(.subheadline.weight(.semibold))
                 Spacer()
-                Text(row.comparable ? format(row.difference, precision: row.precision, unit: row.unit) : "仅显示两端值")
-                    .foregroundStyle(row.comparable ? QNDesign.blue : .secondary)
+                if row.comparable {
+                    differenceView(row, font: .subheadline.weight(.semibold))
+                } else {
+                    Text("仅显示两端值").foregroundStyle(.secondary)
+                }
             }
             Text("\(format(row.start, precision: row.precision, unit: row.unit)) → \(format(row.end, precision: row.precision, unit: row.unit))")
                 .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func differenceView(_ row: QNComparisonRow, font: Font) -> some View {
+        if let difference = row.difference {
+            let direction = difference > 0.000_001 ? 1 : (difference < -0.000_001 ? -1 : 0)
+            HStack(spacing: 5) {
+                Image(systemName: direction > 0 ? "arrow.up.right" : (direction < 0 ? "arrow.down.right" : "minus"))
+                Text(format(abs(difference), precision: row.precision, unit: row.unit))
+            }
+            .font(font.monospacedDigit())
+            .foregroundStyle(direction > 0 ? Color.orange : (direction < 0 ? QNDesign.muscle : Color.secondary))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(direction > 0 ? "上升" : (direction < 0 ? "下降" : "无变化"))
+            .accessibilityValue(format(abs(difference), precision: row.precision, unit: row.unit))
+        } else {
+            Text("—").font(font).foregroundStyle(.secondary)
         }
     }
 
