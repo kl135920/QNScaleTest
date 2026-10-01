@@ -97,7 +97,7 @@ final class QNMeasurementRepository {
         "weight", "bmi", "bodyFatRate", "healthScore", "fatMass", "subcutaneousFatRate", "subcutaneousFat", "subcutaneousFatMass", "visceralFat", "bodyWaterRate", "waterContent", "muscleRate", "skeletalMuscleRate", "muscleMass", "muscleMassRate", "skeletalMuscleMass", "boneMass", "boneMassPercentage", "bmr", "proteinRate", "proteinMass", "leanBodyWeight", "metabolicAge", "smi", "waistHipRatio", "fattyLiverRisk", "mineralSaltRate", "bodyType", "heartRate", "heartIndex", "obesityDegree", "mineralSalt", "bestVisualWeight", "standWeight", "weightControl", "fatControl", "muscleControl", "obesityLevel", "rightArmMuscleMass", "leftArmMuscleMass", "trunkMuscleMass", "rightLegMuscleMass", "leftLegMuscleMass", "rightArmFatMass", "leftArmFatMass", "trunkFatMass", "rightLegFatMass", "leftLegFatMass"
     ]
 
-    init(inMemory: Bool = false) throws {
+    init(inMemory: Bool = false, storeURL: URL? = nil) throws {
         let bundle = Bundle(for: MeasurementManagedObject.self)
         guard let modelURL = bundle.url(forResource: Self.modelName, withExtension: "momd") ?? Bundle.main.url(forResource: Self.modelName, withExtension: "momd"),
               let model = NSManagedObjectModel(contentsOf: modelURL) else {
@@ -106,6 +106,7 @@ final class QNMeasurementRepository {
         container = NSPersistentContainer(name: Self.modelName, managedObjectModel: model)
         let description = container.persistentStoreDescriptions.first ?? NSPersistentStoreDescription()
         if inMemory { description.url = URL(fileURLWithPath: "/dev/null") }
+        if let storeURL { description.url = storeURL }
         description.shouldMigrateStoreAutomatically = true
         description.shouldInferMappingModelAutomatically = true
         container.persistentStoreDescriptions = [description]
@@ -117,6 +118,7 @@ final class QNMeasurementRepository {
         context = container.viewContext
         context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         context.automaticallyMergesChangesFromParent = true
+        try migrateLegacyValuesIfNeeded()
     }
 
     func fetchAll() throws -> [QNMeasurementSnapshot] {
@@ -227,6 +229,22 @@ final class QNMeasurementRepository {
             "measurements": snapshots.map(Self.exportDictionary)
         ]
         return try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
+    }
+
+    private func migrateLegacyValuesIfNeeded() throws {
+        var migrationError: Error?
+        context.performAndWait {
+            do {
+                let request = NSFetchRequest<NSManagedObject>(entityName: "Measurement")
+                request.predicate = NSPredicate(format: "skeletalMuscleRate == nil AND muscleRate != nil")
+                for object in try context.fetch(request) {
+                    object.setValue(object.value(forKey: "muscleRate"), forKey: "skeletalMuscleRate")
+                    object.setValue(Date(), forKey: "updatedAt")
+                }
+                if context.hasChanges { try context.save() }
+            } catch { migrationError = error }
+        }
+        if let migrationError { throw QNMeasurementRepositoryError.storeLoadFailed("旧版肌肉率迁移失败：\(migrationError.localizedDescription)") }
     }
 
     private static func snapshot(_ object: NSManagedObject) -> QNMeasurementSnapshot {
