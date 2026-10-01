@@ -7,7 +7,7 @@
 //
 
 #import "AppDelegate.h"
-#import "QNScaleTestViewController.h"
+#import "QNDeviceSDKDemo-Swift.h"
 
 @interface AppDelegate ()
 
@@ -17,7 +17,7 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
-    QNScaleTestViewController *testViewController = [[QNScaleTestViewController alloc] init];
+    QNAppRootViewController *testViewController = [[QNAppRootViewController alloc] init];
     UINavigationController *navigationController = [[UINavigationController alloc] initWithRootViewController:testViewController];
     self.window.rootViewController = navigationController;
     self.window.backgroundColor = UIColor.systemBackgroundColor;

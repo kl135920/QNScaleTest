@@ -75,6 +75,15 @@
 		D2048A5220A6E15600D943BC /* 123456789.qn in Resources */ = {isa = PBXBuildFile; fileRef = D2048A5120A6E15600D943BC /* 123456789.qn */; };
 		D232D64C2004DE2D00AABD67 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = D232D64B2004DE2D00AABD67 /* AppDelegate.m */; };
 		F60000000000000000000003 /* QNScaleTestViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = F60000000000000000000002 /* QNScaleTestViewController.m */; };
+		A10000000000000000000011 /* QNScaleService.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* QNScaleService.m */; };
+		A10000000000000000000012 /* QNMeasurementManagedObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* QNMeasurementManagedObject.swift */; };
+		A10000000000000000000013 /* QNMetricCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* QNMetricCatalog.swift */; };
+		A10000000000000000000014 /* QNMeasurementRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* QNMeasurementRepository.swift */; };
+		A10000000000000000000015 /* QNUserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* QNUserProfile.swift */; };
+		A10000000000000000000016 /* QNAppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* QNAppStore.swift */; };
+		A10000000000000000000017 /* QNAppRootViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* QNAppRootViewController.swift */; };
+		A10000000000000000000018 /* QNHealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* QNHealthKitService.swift */; };
+		A10000000000000000000019 /* QNScaleModel.xcdatamodeld in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* QNScaleModel.xcdatamodeld */; };
 		D232D64F2004DE2D00AABD67 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = D232D64E2004DE2D00AABD67 /* ViewController.m */; };
 		D232D6522004DE2D00AABD67 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D232D6502004DE2D00AABD67 /* Main.storyboard */; };
 		D232D6542004DE2D00AABD67 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D232D6532004DE2D00AABD67 /* Assets.xcassets */; };
@@ -214,6 +223,18 @@
 		D232D64B2004DE2D00AABD67 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		F60000000000000000000001 /* QNScaleTestViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QNScaleTestViewController.h; sourceTree = "<group>"; };
 		F60000000000000000000002 /* QNScaleTestViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = QNScaleTestViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000001 /* QNScaleService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QNScaleService.h; sourceTree = "<group>"; };
+		A10000000000000000000002 /* QNScaleService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = QNScaleService.m; sourceTree = "<group>"; };
+		A10000000000000000000003 /* QNScaleTest-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QNScaleTest-Bridging-Header.h; sourceTree = "<group>"; };
+		A10000000000000000000004 /* QNMeasurementManagedObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNMeasurementManagedObject.swift; sourceTree = "<group>"; };
+		A10000000000000000000005 /* QNMetricCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNMetricCatalog.swift; sourceTree = "<group>"; };
+		A10000000000000000000006 /* QNMeasurementRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNMeasurementRepository.swift; sourceTree = "<group>"; };
+		A10000000000000000000007 /* QNUserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNUserProfile.swift; sourceTree = "<group>"; };
+		A10000000000000000000008 /* QNAppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNAppStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000009 /* QNAppRootViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNAppRootViewController.swift; sourceTree = "<group>"; };
+		A1000000000000000000000A /* QNHealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNHealthKitService.swift; sourceTree = "<group>"; };
+		A1000000000000000000000B /* V1.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = V1.xcdatamodel; sourceTree = "<group>"; };
+		A1000000000000000000000C /* QNScaleModel.xcdatamodeld */ = {isa = XCVersionGroup; children = (A1000000000000000000000B /* V1.xcdatamodel */,); currentVersion = A1000000000000000000000B /* V1.xcdatamodel */; path = QNScaleModel.xcdatamodeld; sourceTree = "<group>"; versionGroupType = wrapper.xcdatamodel; };
 		D232D64D2004DE2D00AABD67 /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
 		D232D64E2004DE2D00AABD67 /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
 		D232D6512004DE2D00AABD67 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -460,6 +481,17 @@
 				D232D64B2004DE2D00AABD67 /* AppDelegate.m */,
 				F60000000000000000000001 /* QNScaleTestViewController.h */,
 				F60000000000000000000002 /* QNScaleTestViewController.m */,
+				A10000000000000000000001 /* QNScaleService.h */,
+				A10000000000000000000002 /* QNScaleService.m */,
+				A10000000000000000000003 /* QNScaleTest-Bridging-Header.h */,
+				A10000000000000000000004 /* QNMeasurementManagedObject.swift */,
+				A10000000000000000000005 /* QNMetricCatalog.swift */,
+				A10000000000000000000006 /* QNMeasurementRepository.swift */,
+				A10000000000000000000007 /* QNUserProfile.swift */,
+				A10000000000000000000008 /* QNAppStore.swift */,
+				A10000000000000000000009 /* QNAppRootViewController.swift */,
+				A1000000000000000000000A /* QNHealthKitService.swift */,
+				A1000000000000000000000C /* QNScaleModel.xcdatamodeld */,
 				D232D64D2004DE2D00AABD67 /* ViewController.h */,
 				D232D64E2004DE2D00AABD67 /* ViewController.m */,
 				1B09711D2361523200025284 /* KitchenVC.h */,
@@ -719,6 +751,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000019 /* QNScaleModel.xcdatamodeld in Resources */,
 				1B1350EF2417395600E94394 /* WspConfigVC.xib in Resources */,
 				7E2641BF2693F19D005CB29B /* EightElectrodesReportVC.xib in Resources */,
 				D2B9E98B20723DEC0020C2B6 /* DetectionViewController.xib in Resources */,
@@ -749,6 +782,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000011 /* QNScaleService.m in Sources */,
+				A10000000000000000000012 /* QNMeasurementManagedObject.swift in Sources */,
+				A10000000000000000000013 /* QNMetricCatalog.swift in Sources */,
+				A10000000000000000000014 /* QNMeasurementRepository.swift in Sources */,
+				A10000000000000000000015 /* QNUserProfile.swift in Sources */,
+				A10000000000000000000016 /* QNAppStore.swift in Sources */,
+				A10000000000000000000017 /* QNAppRootViewController.swift in Sources */,
+				A10000000000000000000018 /* QNHealthKitService.swift in Sources */,
 				F60000000000000000000003 /* QNScaleTestViewController.m in Sources */,
 				D232D64F2004DE2D00AABD67 /* ViewController.m in Sources */,
 				D248DC5B22D85DF200DA046C /* NSTimer+YYAdd.m in Sources */,
@@ -1036,7 +1077,7 @@
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = com.qingniu.sdk.test;
 				PRODUCT_NAME = QNScaleTest;
-				SWIFT_OBJC_BRIDGING_HEADER = "QNDeviceSDKDemo/Detection/QNDeviceSDKDemo-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "QNDeviceSDKDemo/QNScaleTest-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1067,7 +1108,7 @@
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = com.qingniu.sdk.test;
 				PRODUCT_NAME = QNScaleTest;
-				SWIFT_OBJC_BRIDGING_HEADER = "QNDeviceSDKDemo/Detection/QNDeviceSDKDemo-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "QNDeviceSDKDemo/QNScaleTest-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

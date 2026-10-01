@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23504" systemVersion="25G83" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="V1">
+    <entity name="Measurement" representedClassName="MeasurementManagedObject" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID"/>
+        <attribute name="deduplicationKey" optional="YES" attributeType="String"/>
+        <attribute name="measureTime" optional="YES" attributeType="Date"/>
+        <attribute name="schemaVersion" optional="YES" attributeType="Integer 64" defaultValueString="1"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date"/>
+        <attribute name="userId" optional="YES" attributeType="String"/>
+        <attribute name="nickname" optional="YES" attributeType="String"/>
+        <attribute name="gender" optional="YES" attributeType="String"/>
+        <attribute name="birthday" optional="YES" attributeType="Date"/>
+        <attribute name="height" optional="YES" attributeType="Double"/>
+        <attribute name="athleteType" optional="YES" attributeType="Integer 64"/>
+        <attribute name="targetWeight" optional="YES" attributeType="Double"/>
+        <attribute name="weight" optional="YES" attributeType="Double"/>
+        <attribute name="bmi" optional="YES" attributeType="Double"/>
+        <attribute name="bodyFatRate" optional="YES" attributeType="Double"/>
+        <attribute name="fatMass" optional="YES" attributeType="Double"/>
+        <attribute name="subcutaneousFat" optional="YES" attributeType="Double"/>
+        <attribute name="visceralFat" optional="YES" attributeType="Double"/>
+        <attribute name="bodyWaterRate" optional="YES" attributeType="Double"/>
+        <attribute name="waterContent" optional="YES" attributeType="Double"/>
+        <attribute name="muscleRate" optional="YES" attributeType="Double"/>
+        <attribute name="muscleMass" optional="YES" attributeType="Double"/>
+        <attribute name="muscleMassRate" optional="YES" attributeType="Double"/>
+        <attribute name="skeletalMuscleMass" optional="YES" attributeType="Double"/>
+        <attribute name="boneMass" optional="YES" attributeType="Double"/>
+        <attribute name="bmr" optional="YES" attributeType="Double"/>
+        <attribute name="proteinRate" optional="YES" attributeType="Double"/>
+        <attribute name="proteinMass" optional="YES" attributeType="Double"/>
+        <attribute name="leanBodyWeight" optional="YES" attributeType="Double"/>
+        <attribute name="metabolicAge" optional="YES" attributeType="Double"/>
+        <attribute name="smi" optional="YES" attributeType="Double"/>
+        <attribute name="waistHipRatio" optional="YES" attributeType="Double"/>
+        <attribute name="rightArmMuscleMass" optional="YES" attributeType="Double"/>
+        <attribute name="leftArmMuscleMass" optional="YES" attributeType="Double"/>
+        <attribute name="trunkMuscleMass" optional="YES" attributeType="Double"/>
+        <attribute name="rightLegMuscleMass" optional="YES" attributeType="Double"/>
+        <attribute name="leftLegMuscleMass" optional="YES" attributeType="Double"/>
+        <attribute name="rightArmFatMass" optional="YES" attributeType="Double"/>
+        <attribute name="leftArmFatMass" optional="YES" attributeType="Double"/>
+        <attribute name="trunkFatMass" optional="YES" attributeType="Double"/>
+        <attribute name="rightLegFatMass" optional="YES" attributeType="Double"/>
+        <attribute name="leftLegFatMass" optional="YES" attributeType="Double"/>
+        <attribute name="type101" optional="YES" attributeType="Double"/>
+        <attribute name="type102" optional="YES" attributeType="Double"/>
+        <attribute name="type103" optional="YES" attributeType="Double"/>
+        <attribute name="type104" optional="YES" attributeType="Double"/>
+        <attribute name="type105" optional="YES" attributeType="Double"/>
+        <attribute name="type106" optional="YES" attributeType="Double"/>
+        <attribute name="type107" optional="YES" attributeType="Double"/>
+        <attribute name="type108" optional="YES" attributeType="Double"/>
+        <attribute name="type109" optional="YES" attributeType="Double"/>
+        <attribute name="type110" optional="YES" attributeType="Double"/>
+        <attribute name="type111" optional="YES" attributeType="Double"/>
+        <attribute name="type112" optional="YES" attributeType="Double"/>
+        <attribute name="type113" optional="YES" attributeType="Double"/>
+        <attribute name="type114" optional="YES" attributeType="Double"/>
+        <attribute name="type115" optional="YES" attributeType="Double"/>
+        <attribute name="type116" optional="YES" attributeType="Double"/>
+        <attribute name="type117" optional="YES" attributeType="Double"/>
+        <attribute name="type118" optional="YES" attributeType="Double"/>
+        <attribute name="type119" optional="YES" attributeType="Double"/>
+        <attribute name="type120" optional="YES" attributeType="Double"/>
+        <attribute name="type121" optional="YES" attributeType="Double"/>
+        <attribute name="type122" optional="YES" attributeType="Double"/>
+        <attribute name="bluetoothName" optional="YES" attributeType="String"/>
+        <attribute name="deviceIdentifier" optional="YES" attributeType="String"/>
+        <attribute name="modeId" optional="YES" attributeType="String"/>
+        <attribute name="sdkDeviceType" optional="YES" attributeType="Integer 64"/>
+        <attribute name="sdkVersion" optional="YES" attributeType="String"/>
+        <attribute name="resistance50" optional="YES" attributeType="Integer 64"/>
+        <attribute name="resistance500" optional="YES" attributeType="Integer 64"/>
+        <attribute name="hmac" optional="YES" attributeType="String"/>
+        <attribute name="newEightModel" optional="YES" attributeType="Integer 64"/>
+        <attribute name="eightIsAbnormal" optional="YES" attributeType="Integer 64"/>
+        <attribute name="eightReasonMask" optional="YES" attributeType="Integer 64"/>
+        <attribute name="rawItemsJSON" optional="YES" attributeType="String"/>
+        <attribute name="rawMeasurementJSON" optional="YES" attributeType="String"/>
+        <attribute name="status" optional="YES" attributeType="String"/>
+        <attribute name="saveError" optional="YES" attributeType="String"/>
+    </entity>
+</model>
