@@ -98,7 +98,6 @@ jobs:
             CODE_SIGN_ENTITLEMENTS= \
             DEVELOPMENT_TEAM= \
             ENABLE_BITCODE=NO \
-            PRODUCT_NAME=QNScaleTest \
             clean build 2>&1 | tee "$XCODEBUILD_LOG"
 
       - name: Verify and package IPA
