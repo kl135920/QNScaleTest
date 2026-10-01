@@ -23,6 +23,28 @@ final class QNScaleTestPersistenceTests: XCTestCase {
         XCTAssertEqual(mapped.items.count, 30)
     }
 
+    func testComparisonIncludesFiveSegmentMuscleAndFatMetrics() throws {
+        var endMeasurement = try fixture()
+        var scaleData = try XCTUnwrap(endMeasurement["scaleData"] as? [String: Any])
+        scaleData["measureTime"] = "2026-10-02T15:34:46+08:00"
+        endMeasurement["scaleData"] = scaleData
+        var items = try XCTUnwrap(endMeasurement["items"] as? [[String: Any]])
+        for index in items.indices where (101...105).contains(items[index]["type"] as? Int ?? -1) || (113...117).contains(items[index]["type"] as? Int ?? -1) {
+            items[index]["value"] = (items[index]["value"] as? Double ?? 0) + 0.1
+        }
+        endMeasurement["items"] = items
+
+        let repository = try QNMeasurementRepository(inMemory: true)
+        let start = try repository.save(measurement: fixture(), profile: profile())
+        let end = try repository.save(measurement: endMeasurement, profile: profile())
+        let comparison = try XCTUnwrap(QNHistoryComparisonService.compare(start: start, end: end))
+
+        XCTAssertEqual(comparison.rows.filter { QNMetricCatalog.segmentMuscleTypes.contains($0.type) }.count, 5)
+        XCTAssertEqual(comparison.rows.filter { QNMetricCatalog.segmentFatTypes.contains($0.type) }.count, 5)
+        XCTAssertEqual(try XCTUnwrap(comparison.rows.first { $0.type == 101 }?.difference), 0.1, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(comparison.rows.first { $0.type == 113 }?.difference), 0.1, accuracy: 0.0001)
+    }
+
     func testMapperAcceptsObjectiveCBridgeContainers() throws {
         let source = try fixture()
         let items = try XCTUnwrap(source["items"] as? [[String: Any]])

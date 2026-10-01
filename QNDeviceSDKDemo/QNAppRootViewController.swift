@@ -261,25 +261,29 @@ private struct QNSegmentBody: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            GeometryReader { proxy in
-                ZStack {
-                    Circle()
-                        .fill(Color.secondary.opacity(0.20))
-                        .overlay(Circle().stroke(Color.primary.opacity(0.07), lineWidth: 1))
-                        .frame(width: proxy.size.width * 0.115)
-                        .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.10)
-                    Capsule()
-                        .fill(selected == "躯干" ? accent.opacity(0.88) : Color.secondary.opacity(0.20))
-                        .frame(width: proxy.size.width * 0.055, height: proxy.size.height * 0.08)
-                        .position(x: proxy.size.width * 0.5, y: proxy.size.height * 0.215)
-                    regionButton("右臂", shape: QNArmShape(mirrored: false), x: 0.335, y: 0.42, width: 0.11, height: 0.43, rotation: 4, proxy: proxy)
-                    regionButton("左臂", shape: QNArmShape(mirrored: true), x: 0.665, y: 0.42, width: 0.11, height: 0.43, rotation: -4, proxy: proxy)
-                    regionButton("躯干", shape: QNTorsoShape(), x: 0.50, y: 0.40, width: 0.29, height: 0.40, proxy: proxy)
-                    regionButton("右腿", shape: QNLegShape(mirrored: false), x: 0.435, y: 0.77, width: 0.12, height: 0.41, rotation: 1.5, proxy: proxy)
-                    regionButton("左腿", shape: QNLegShape(mirrored: true), x: 0.565, y: 0.77, width: 0.12, height: 0.41, rotation: -1.5, proxy: proxy)
+            ZStack {
+                Image(systemName: bodySymbol)
+                    .resizable()
+                    .scaledToFit()
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(Color.secondary.opacity(0.28))
+                Image(systemName: bodySymbol)
+                    .resizable()
+                    .scaledToFit()
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(accent)
+                    .mask(QNBodyRegionMask(region: selected).fill(.white))
+                    .shadow(color: accent.opacity(0.30), radius: 10)
+                GeometryReader { proxy in
+                    hitRegionButton("右臂", x: 0.18, y: 0.34, width: 0.34, height: 0.34, proxy: proxy)
+                    hitRegionButton("左臂", x: 0.82, y: 0.34, width: 0.34, height: 0.34, proxy: proxy)
+                    hitRegionButton("躯干", x: 0.50, y: 0.40, width: 0.34, height: 0.42, proxy: proxy)
+                    hitRegionButton("右腿", x: 0.41, y: 0.77, width: 0.24, height: 0.40, proxy: proxy)
+                    hitRegionButton("左腿", x: 0.59, y: 0.77, width: 0.24, height: 0.40, proxy: proxy)
                 }
             }
-            .frame(height: 245)
+            .frame(width: 210, height: 235)
+            .accessibilityElement(children: .contain)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
                 ForEach(regions, id: \.self) { region in
                     Button { selected = region } label: {
@@ -302,14 +306,13 @@ private struct QNSegmentBody: View {
         }
     }
 
-    private func regionButton<S: Shape>(_ region: String, shape: S, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat, rotation: Double = 0, proxy: GeometryProxy) -> some View {
+    private var bodySymbol: String { UIImage(systemName: "figure.arms.open") == nil ? "figure.stand" : "figure.arms.open" }
+
+    private func hitRegionButton(_ region: String, x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat, proxy: GeometryProxy) -> some View {
         Button { selected = region } label: {
-            shape
-                .fill(selected == region ? accent.opacity(0.88) : Color.secondary.opacity(0.18))
-                .overlay(shape.stroke(selected == region ? accent.opacity(0.45) : Color.primary.opacity(0.06), lineWidth: 1))
+            Color.clear
                 .frame(width: proxy.size.width * width, height: proxy.size.height * height)
-                .rotationEffect(.degrees(rotation))
-                .shadow(color: selected == region ? accent.opacity(0.22) : .clear, radius: 12)
+                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .position(x: proxy.size.width * x, y: proxy.size.height * y)
         .accessibilityLabel("\(region)\(showFat ? "脂肪量" : "肌肉量")")
@@ -317,57 +320,19 @@ private struct QNSegmentBody: View {
     }
 }
 
-private struct QNTorsoShape: Shape {
+private struct QNBodyRegionMask: Shape {
+    let region: String
     func path(in rect: CGRect) -> Path {
-        let x = rect.minX, y = rect.minY, w = rect.width, h = rect.height
         var path = Path()
-        path.move(to: CGPoint(x: x + w * 0.38, y: y))
-        path.addCurve(to: CGPoint(x: x + w * 0.12, y: y + h * 0.16), control1: CGPoint(x: x + w * 0.31, y: y + h * 0.04), control2: CGPoint(x: x + w * 0.18, y: y + h * 0.07))
-        path.addCurve(to: CGPoint(x: x + w * 0.16, y: y + h * 0.52), control1: CGPoint(x: x + w * 0.06, y: y + h * 0.28), control2: CGPoint(x: x + w * 0.10, y: y + h * 0.42))
-        path.addCurve(to: CGPoint(x: x + w * 0.27, y: y + h * 0.88), control1: CGPoint(x: x + w * 0.20, y: y + h * 0.66), control2: CGPoint(x: x + w * 0.18, y: y + h * 0.78))
-        path.addCurve(to: CGPoint(x: x + w * 0.38, y: y + h), control1: CGPoint(x: x + w * 0.29, y: y + h * 0.96), control2: CGPoint(x: x + w * 0.34, y: y + h))
-        path.addLine(to: CGPoint(x: x + w * 0.62, y: y + h))
-        path.addCurve(to: CGPoint(x: x + w * 0.73, y: y + h * 0.88), control1: CGPoint(x: x + w * 0.66, y: y + h), control2: CGPoint(x: x + w * 0.71, y: y + h * 0.96))
-        path.addCurve(to: CGPoint(x: x + w * 0.84, y: y + h * 0.52), control1: CGPoint(x: x + w * 0.82, y: y + h * 0.78), control2: CGPoint(x: x + w * 0.80, y: y + h * 0.66))
-        path.addCurve(to: CGPoint(x: x + w * 0.88, y: y + h * 0.16), control1: CGPoint(x: x + w * 0.90, y: y + h * 0.42), control2: CGPoint(x: x + w * 0.94, y: y + h * 0.28))
-        path.addCurve(to: CGPoint(x: x + w * 0.62, y: y), control1: CGPoint(x: x + w * 0.82, y: y + h * 0.07), control2: CGPoint(x: x + w * 0.69, y: y + h * 0.04))
-        path.closeSubpath()
-        return path
-    }
-}
-
-private struct QNArmShape: Shape {
-    let mirrored: Bool
-    func path(in rect: CGRect) -> Path {
-        let x = rect.minX, y = rect.minY, w = rect.width, h = rect.height
-        var path = Path()
-        path.move(to: CGPoint(x: x + w * 0.20, y: y + h * 0.04))
-        path.addCurve(to: CGPoint(x: x + w * 0.80, y: y), control1: CGPoint(x: x + w * 0.38, y: y), control2: CGPoint(x: x + w * 0.64, y: y))
-        path.addCurve(to: CGPoint(x: x + w * 0.68, y: y + h * 0.52), control1: CGPoint(x: x + w * 0.88, y: y + h * 0.16), control2: CGPoint(x: x + w * 0.78, y: y + h * 0.37))
-        path.addCurve(to: CGPoint(x: x + w * 0.58, y: y + h * 0.93), control1: CGPoint(x: x + w * 0.62, y: y + h * 0.68), control2: CGPoint(x: x + w * 0.68, y: y + h * 0.84))
-        path.addCurve(to: CGPoint(x: x + w * 0.30, y: y + h * 0.94), control1: CGPoint(x: x + w * 0.51, y: y + h), control2: CGPoint(x: x + w * 0.37, y: y + h))
-        path.addCurve(to: CGPoint(x: x + w * 0.25, y: y + h * 0.54), control1: CGPoint(x: x + w * 0.18, y: y + h * 0.85), control2: CGPoint(x: x + w * 0.28, y: y + h * 0.68))
-        path.addCurve(to: CGPoint(x: x + w * 0.20, y: y + h * 0.04), control1: CGPoint(x: x + w * 0.19, y: y + h * 0.37), control2: CGPoint(x: x + w * 0.10, y: y + h * 0.16))
-        path.closeSubpath()
-        if mirrored { return path.applying(CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: rect.minX + rect.maxX, ty: 0)) }
-        return path
-    }
-}
-
-private struct QNLegShape: Shape {
-    let mirrored: Bool
-    func path(in rect: CGRect) -> Path {
-        let x = rect.minX, y = rect.minY, w = rect.width, h = rect.height
-        var path = Path()
-        path.move(to: CGPoint(x: x + w * 0.12, y: y))
-        path.addCurve(to: CGPoint(x: x + w * 0.86, y: y + h * 0.02), control1: CGPoint(x: x + w * 0.30, y: y - h * 0.02), control2: CGPoint(x: x + w * 0.70, y: y - h * 0.02))
-        path.addCurve(to: CGPoint(x: x + w * 0.67, y: y + h * 0.52), control1: CGPoint(x: x + w * 0.93, y: y + h * 0.18), control2: CGPoint(x: x + w * 0.75, y: y + h * 0.38))
-        path.addCurve(to: CGPoint(x: x + w * 0.65, y: y + h * 0.91), control1: CGPoint(x: x + w * 0.62, y: y + h * 0.67), control2: CGPoint(x: x + w * 0.72, y: y + h * 0.84))
-        path.addCurve(to: CGPoint(x: x + w * 0.32, y: y + h * 0.98), control1: CGPoint(x: x + w * 0.58, y: y + h), control2: CGPoint(x: x + w * 0.39, y: y + h * 1.01))
-        path.addCurve(to: CGPoint(x: x + w * 0.25, y: y + h * 0.55), control1: CGPoint(x: x + w * 0.20, y: y + h * 0.88), control2: CGPoint(x: x + w * 0.30, y: y + h * 0.70))
-        path.addCurve(to: CGPoint(x: x + w * 0.12, y: y), control1: CGPoint(x: x + w * 0.18, y: y + h * 0.37), control2: CGPoint(x: x + w * 0.03, y: y + h * 0.16))
-        path.closeSubpath()
-        if mirrored { return path.applying(CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: rect.minX + rect.maxX, ty: 0)) }
+        let regionRect: CGRect
+        switch region {
+        case "右臂": regionRect = CGRect(x: rect.minX, y: rect.minY + rect.height * 0.18, width: rect.width * 0.36, height: rect.height * 0.43)
+        case "左臂": regionRect = CGRect(x: rect.minX + rect.width * 0.64, y: rect.minY + rect.height * 0.18, width: rect.width * 0.36, height: rect.height * 0.43)
+        case "右腿": regionRect = CGRect(x: rect.minX + rect.width * 0.28, y: rect.minY + rect.height * 0.54, width: rect.width * 0.23, height: rect.height * 0.46)
+        case "左腿": regionRect = CGRect(x: rect.minX + rect.width * 0.49, y: rect.minY + rect.height * 0.54, width: rect.width * 0.23, height: rect.height * 0.46)
+        default: regionRect = CGRect(x: rect.minX + rect.width * 0.31, y: rect.minY + rect.height * 0.16, width: rect.width * 0.38, height: rect.height * 0.46)
+        }
+        path.addRoundedRect(in: regionRect, cornerSize: CGSize(width: 14, height: 14))
         return path
     }
 }
@@ -539,24 +504,36 @@ private struct QNComparisonView: View {
                         Text("起点 \(comparison.start.displayDate) → 终点 \(comparison.end.displayDate)，相隔 \(comparison.intervalDays) 天").font(.caption).foregroundStyle(.secondary)
                     }
                 }
-                Section("指标变化") {
-                    ForEach(comparison.rows) { row in
-                        VStack(alignment: .leading, spacing: 5) {
-                            HStack {
-                                Text(row.title).font(.subheadline.weight(.semibold))
-                                Spacer()
-                                Text(row.comparable ? format(row.difference, precision: row.precision, unit: row.unit) : "仅显示两端值")
-                                    .foregroundStyle(row.comparable ? QNDesign.blue : .secondary)
-                            }
-                            HStack {
-                                Text("\(format(row.start, precision: row.precision, unit: row.unit)) → \(format(row.end, precision: row.precision, unit: row.unit))")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
+                Section("身体指标") {
+                    ForEach(comparison.rows.filter { $0.type < 100 }) { row in
+                        comparisonRow(row)
+                    }
+                }
+                Section("五段肌肉") {
+                    ForEach(comparison.rows.filter { QNMetricCatalog.segmentMuscleTypes.contains($0.type) }) { row in
+                        comparisonRow(row)
+                    }
+                }
+                Section("五段脂肪") {
+                    ForEach(comparison.rows.filter { QNMetricCatalog.segmentFatTypes.contains($0.type) }) { row in
+                        comparisonRow(row)
                     }
                 }
             }
             .navigationTitle("身体变化")
+        }
+    }
+
+    private func comparisonRow(_ row: QNComparisonRow) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(row.title).font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(row.comparable ? format(row.difference, precision: row.precision, unit: row.unit) : "仅显示两端值")
+                    .foregroundStyle(row.comparable ? QNDesign.blue : .secondary)
+            }
+            Text("\(format(row.start, precision: row.precision, unit: row.unit)) → \(format(row.end, precision: row.precision, unit: row.unit))")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 
