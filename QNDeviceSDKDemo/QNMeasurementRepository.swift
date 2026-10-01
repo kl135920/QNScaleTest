@@ -134,7 +134,7 @@ final class QNMeasurementRepository {
                 object.setValue(Self.string(device["bluetoothName"]), forKey: "bluetoothName")
                 object.setValue(deviceIdentifier, forKey: "deviceIdentifier")
                 object.setValue(Self.string(device["modeId"]), forKey: "modeId")
-                object.setValue(Self.int(device["deviceType"]).map(Int64.init), forKey: "sdkDeviceType")
+                object.setValue(Self.int(device["deviceType"]).map { Int64($0) }, forKey: "sdkDeviceType")
                 object.setValue(Self.string(measurement["metadata"].flatMap { ($0 as? [String: Any])?["sdkVersion"] }), forKey: "sdkVersion")
                 object.setValue(Self.int(scale["resistance50"]).map(Int64.init), forKey: "resistance50")
                 object.setValue(Self.int(scale["resistance500"]).map(Int64.init), forKey: "resistance500")
