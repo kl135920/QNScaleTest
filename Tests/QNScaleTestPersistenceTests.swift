@@ -1,5 +1,5 @@
 import XCTest
-@testable import QNDeviceSDKDemo
+@testable import QNScaleTest
 
 final class QNScaleTestPersistenceTests: XCTestCase {
     private func fixture() throws -> [String: Any] {
