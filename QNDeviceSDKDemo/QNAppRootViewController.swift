@@ -327,7 +327,33 @@ private struct QNProfileView: View {
     @State private var showDeveloper = false
     @State private var shareURL: URL?
     var body: some View {
-        NavigationView { List { Section("用户资料") { if let profile=store.profile { LabeledContent("昵称", value: profile.nickname); LabeledContent("性别", value: profile.genderText); LabeledContent("身高", value: "\(String(format:"%.0f",profile.height)) cm"); LabeledContent("模式", value: profile.athleteText); LabeledContent("用户 ID", value: profile.userId) }; Button("编辑资料") { showEditor=true } } Section("数据") { Button("历史记录") { showHistory=true }; Button("导出全部历史 JSON") { shareURL=store.exportAllHistory() } } Section("关于") { Button("开发者模式") { showDeveloper=true }; Text("HealthKit 接口已预留，当前不请求权限、不写入健康数据").font(.footnote).foregroundStyle(.secondary) } }.navigationTitle("我的").sheet(isPresented:$showEditor) { QNProfileEditorView(profile:store.profile,isRequired:false) }.sheet(isPresented:$showHistory) { QNHistoryView() }.sheet(isPresented:$showDeveloper) { QNDeveloperView() }.sheet(item:$shareURL) { QNShareSheet(items:[$0]) } }
+        NavigationView {
+            List {
+                Section("用户资料") {
+                    if let profile = store.profile {
+                        LabeledContent("昵称", value: profile.nickname)
+                        LabeledContent("性别", value: profile.genderText)
+                        LabeledContent("身高", value: "\(String(format: "%.0f", profile.height)) cm")
+                        LabeledContent("模式", value: profile.athleteText)
+                        LabeledContent("用户 ID", value: profile.userId)
+                    }
+                    Button("编辑资料") { showEditor = true }
+                }
+                Section("数据") {
+                    Button("历史记录") { showHistory = true }
+                    Button("导出全部历史 JSON") { shareURL = store.exportAllHistory() }
+                }
+                Section("关于") {
+                    Button("开发者模式") { showDeveloper = true }
+                    Text("HealthKit 接口已预留，当前不请求权限、不写入健康数据").font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("我的")
+            .sheet(isPresented: $showEditor) { QNProfileEditorView(profile: store.profile, isRequired: false) }
+            .sheet(isPresented: $showHistory) { QNHistoryView() }
+            .sheet(isPresented: $showDeveloper) { QNDeveloperView() }
+            .sheet(item: $shareURL) { QNShareSheet(items: [$0]) }
+        }
     }
 }
 
@@ -358,8 +384,48 @@ private struct QNProfileEditorView: View {
     @State private var athlete: Bool
     @State private var targetWeight: String
 
-    init(profile: QNUserProfile?, isRequired: Bool) { existing=profile; self.isRequired=isRequired; _nickname=State(initialValue:profile?.nickname ?? ""); _gender=State(initialValue:profile?.gender ?? "male"); _birthday=State(initialValue:profile?.birthday ?? Calendar.current.date(byAdding:.year,value:-30,to:Date())!); _height=State(initialValue:profile.map{String(format:"%.0f",$0.height)} ?? ""); _athlete=State(initialValue:profile?.athleteType == 1); _targetWeight=State(initialValue:profile?.targetWeight.map{String(format:"%.1f",$0)} ?? "") }
-    var body: some View { NavigationView { Form { Section("资料") { TextField("昵称",text:$nickname); Picker("性别",selection:$gender){Text("男").tag("male");Text("女").tag("female")}; DatePicker("出生日期",selection:$birthday,in:...Date(),displayedComponents:.date); TextField("身高（cm）",text:$height).keyboardType(.decimalPad); Toggle("运动员模式",isOn:$athlete); TextField("目标体重（可选）",text:$targetWeight).keyboardType(.decimalPad) } Section { Text("出生日期、性别、身高和模式会作为每次测量的用户快照；历史记录不会被重新计算。").font(.footnote).foregroundStyle(.secondary) } }.navigationTitle(isRequired ? "建立资料" : "编辑资料").toolbar { ToolbarItem(placement:.confirmationAction){Button("保存"){save()}.disabled(nickname.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty || Double(height)==nil) }; if !isRequired { ToolbarItem(placement:.cancellationAction){Button("取消"){dismiss()}} } } } }
+    init(profile: QNUserProfile?, isRequired: Bool) {
+        existing = profile
+        self.isRequired = isRequired
+        _nickname = State(initialValue: profile?.nickname ?? "")
+        _gender = State(initialValue: profile?.gender ?? "male")
+        _birthday = State(initialValue: profile?.birthday ?? Calendar.current.date(byAdding: .year, value: -30, to: Date())!)
+        _height = State(initialValue: profile.map { String(format: "%.0f", $0.height) } ?? "")
+        _athlete = State(initialValue: profile?.athleteType == 1)
+        _targetWeight = State(initialValue: profile?.targetWeight.map { String(format: "%.1f", $0) } ?? "")
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("资料") {
+                    TextField("昵称", text: $nickname)
+                    Picker("性别", selection: $gender) {
+                        Text("男").tag("male")
+                        Text("女").tag("female")
+                    }
+                    DatePicker("出生日期", selection: $birthday, in: ...Date(), displayedComponents: .date)
+                    TextField("身高（cm）", text: $height).keyboardType(.decimalPad)
+                    Toggle("运动员模式", isOn: $athlete)
+                    TextField("目标体重（可选）", text: $targetWeight).keyboardType(.decimalPad)
+                }
+                Section {
+                    Text("出生日期、性别、身高和模式会作为每次测量的用户快照；历史记录不会被重新计算。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle(isRequired ? "建立资料" : "编辑资料")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") { save() }
+                        .disabled(nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || Double(height) == nil)
+                }
+                if !isRequired {
+                    ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                }
+            }
+        }
+    }
     private func save() { let value=QNUserProfile(userId:existing?.userId ?? UUID().uuidString,nickname:nickname.trimmingCharacters(in:.whitespacesAndNewlines),gender:gender,birthday:birthday,height:Double(height) ?? 0,athleteType:athlete ? 1 : 0,targetWeight:Double(targetWeight)); store.saveProfile(value); if value.isValid { dismiss() } }
 }
 
