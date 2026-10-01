@@ -562,10 +562,18 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000010 /* QNScaleTestPersistenceTests.swift */,
-				A20000000000000000000011 /* QNScaleMeasurementFixture.redacted.json */,
+				A20000000000000000000024 /* Fixtures */,
 				A20000000000000000000012 /* Info.plist */,
 			);
 			path = Tests;
+			sourceTree = "<group>";
+		};
+		A20000000000000000000024 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000011 /* QNScaleMeasurementFixture.redacted.json */,
+			);
+			path = Fixtures;
 			sourceTree = "<group>";
 		};
 		D2B9E97B20723DEC0020C2B6 /* Detection */ = {
