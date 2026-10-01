@@ -176,7 +176,10 @@ final class QNMeasurementRepository {
                 object.setValue(QNMeasurementMapper.int(mapped.scale["heightMode"]).map { Int64($0) }, forKey: "heightMode")
 
                 for (type, value) in mapped.valuesByType {
-                    object.setValue(value, forKey: "type\(type)")
+                    let rawTypeKey = "type\(type)"
+                    if object.entity.attributesByName[rawTypeKey] != nil {
+                        object.setValue(value, forKey: rawTypeKey)
+                    }
                     if let key = Self.standardKey(for: type) { object.setValue(value, forKey: key) }
                 }
                 object.setValue(mapped.boneMassPercentage, forKey: "boneMassPercentage")
