@@ -95,11 +95,11 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
 
     func copyLogs() { UIPasteboard.general.string = debugLog }
 
-    func serviceDidUpdateState(_ state: String) {
+    func scaleServiceDidUpdateState(_ state: String) {
         DispatchQueue.main.async { self.serviceState = state }
     }
 
-    func serviceDidUpdateDevices(_ devices: [[AnyHashable : Any]]) {
+    func scaleServiceDidUpdateDevices(_ devices: [[AnyHashable : Any]]) {
         DispatchQueue.main.async {
             self.devices = devices.enumerated().map { offset, dictionary in
                 let id = Self.string(dictionary["deviceIdentifier"]) ?? "device-\(offset)"
@@ -108,14 +108,14 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
         }
     }
 
-    func serviceDidUpdateWeight(_ weight: Double, state: String) {
+    func scaleServiceDidUpdateWeight(_ weight: Double, state: String) {
         DispatchQueue.main.async {
             if weight.isFinite { self.weight = weight }
             self.measurementState = state
         }
     }
 
-    func serviceDidReceiveMeasurement(_ measurement: [AnyHashable : Any]) {
+    func scaleServiceDidReceiveMeasurement(_ measurement: [AnyHashable : Any]) {
         let json = Self.stringKeyedDictionary(measurement) ?? [:]
         DispatchQueue.main.async {
             self.pendingMeasurement = json
@@ -136,8 +136,8 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
         catch { lastError = "重试保存失败：\(error.localizedDescription)" }
     }
 
-    func serviceDidReceiveLog(_ line: String) { objectWillChange.send() }
-    func serviceDidFinishInitialization(_ success: Bool, error: Error?) { if let error { lastError = "SDK 初始化失败：\(error.localizedDescription)" } }
+    func scaleServiceDidReceiveLog(_ line: String) { objectWillChange.send() }
+    func scaleServiceDidFinishInitialization(_ success: Bool, error: Error?) { if let error { lastError = "SDK 初始化失败：\(error.localizedDescription)" } }
 
     private func loadProfile() -> QNUserProfile? {
         guard let data = UserDefaults.standard.data(forKey: profileKey) else { return nil }
