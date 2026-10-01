@@ -1,4 +1,5 @@
 import XCTest
+import CoreData
 
 final class QNScaleTestPersistenceTests: XCTestCase {
     private func fixture() throws -> [String: Any] {
@@ -14,10 +15,10 @@ final class QNScaleTestPersistenceTests: XCTestCase {
 
     func testFixtureMapperAndBoneRatio() throws {
         let mapped = try QNMeasurementMapper.map(measurement: fixture(), profile: profile())
-        XCTAssertEqual(mapped.valuesByType[1], 84.2, accuracy: 0.0001)
-        XCTAssertEqual(mapped.valuesByType[7], 41.6, accuracy: 0.0001)
-        XCTAssertEqual(mapped.valuesByType[31], 68.6, accuracy: 0.0001)
-        XCTAssertEqual(mapped.valuesByType[112], 35.0, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(mapped.valuesByType[1]), 84.2, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(mapped.valuesByType[7]), 41.6, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(mapped.valuesByType[31]), 68.6, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(mapped.valuesByType[112]), 35.0, accuracy: 0.0001)
         XCTAssertEqual(mapped.boneMassPercentage ?? 0, 4.5 / 84.2 * 100, accuracy: 0.000001)
         XCTAssertEqual(mapped.items.count, 30)
     }
