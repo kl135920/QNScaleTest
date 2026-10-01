@@ -136,12 +136,12 @@ final class QNMeasurementRepository {
                 object.setValue(Self.string(device["modeId"]), forKey: "modeId")
                 object.setValue(Self.int(device["deviceType"]).map { Int64($0) }, forKey: "sdkDeviceType")
                 object.setValue(Self.string(measurement["metadata"].flatMap { ($0 as? [String: Any])?["sdkVersion"] }), forKey: "sdkVersion")
-                object.setValue(Self.int(scale["resistance50"]).map(Int64.init), forKey: "resistance50")
-                object.setValue(Self.int(scale["resistance500"]).map(Int64.init), forKey: "resistance500")
+                object.setValue(Self.int(scale["resistance50"]).map { Int64($0) }, forKey: "resistance50")
+                object.setValue(Self.int(scale["resistance500"]).map { Int64($0) }, forKey: "resistance500")
                 object.setValue(hmac, forKey: "hmac")
-                object.setValue(Self.int(scale["newEightModel"]).map(Int64.init), forKey: "newEightModel")
-                object.setValue(Self.int(scale["eightIsAbnormal"]).map(Int64.init), forKey: "eightIsAbnormal")
-                object.setValue(Self.int(scale["eightReasonMask"]).map(Int64.init), forKey: "eightReasonMask")
+                object.setValue(Self.int(scale["newEightModel"]).map { Int64($0) }, forKey: "newEightModel")
+                object.setValue(Self.int(scale["eightIsAbnormal"]).map { Int64($0) }, forKey: "eightIsAbnormal")
+                object.setValue(Self.int(scale["eightReasonMask"]).map { Int64($0) }, forKey: "eightReasonMask")
                 let items = measurement["items"] as? [[String: Any]] ?? []
                 for item in items {
                     guard let type = Self.int(item["type"]), let value = Self.double(item["value"]) else { continue }
