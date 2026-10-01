@@ -40,6 +40,17 @@ final class QNScaleTestPersistenceTests: XCTestCase {
         XCTAssertFalse(mapped.deduplicationKey.isEmpty)
     }
 
+    func testMapperAcceptsSDKTimestampWithFractionalSecondsAndOffset() throws {
+        var measurement = try fixture()
+        var scaleData = try XCTUnwrap(measurement["scaleData"] as? [String: Any])
+        scaleData["measureTime"] = "2026-10-01T18:35:20.000+08:00"
+        measurement["scaleData"] = scaleData
+
+        let mapped = try QNMeasurementMapper.map(measurement: measurement, profile: profile())
+
+        XCTAssertEqual(QNMeasurementMapper.isoDate(mapped.measureTime), "2026-10-01T10:35:20Z")
+    }
+
     func testRepositoryDeduplicatesAndReopens() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("QNScaleTest-\(UUID().uuidString).sqlite")
         defer { try? FileManager.default.removeItem(at: url); try? FileManager.default.removeItem(at: url.appendingPathExtension("-shm")); try? FileManager.default.removeItem(at: url.appendingPathExtension("-wal")) }

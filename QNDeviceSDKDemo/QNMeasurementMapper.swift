@@ -21,11 +21,17 @@ struct QNMappedMeasurement {
 
 enum QNMeasurementMapper {
     static func map(measurement: [String: Any], profile: QNUserProfile) throws -> QNMappedMeasurement {
-        guard let scale = dictionary(measurement["scaleData"]),
-              let device = dictionary(measurement["device"]),
-              let user = dictionary(measurement["user"]),
-              let measureTime = date(scale["measureTime"]) else {
-            throw QNMeasurementRepositoryError.invalidMeasurement("QNScaleData 缺少 scaleData、device、user 或 measureTime")
+        guard let scale = dictionary(measurement["scaleData"]) else {
+            throw QNMeasurementRepositoryError.invalidMeasurement("QNScaleData 缺少 scaleData")
+        }
+        guard let device = dictionary(measurement["device"]) else {
+            throw QNMeasurementRepositoryError.invalidMeasurement("QNScaleData 缺少 device")
+        }
+        guard let user = dictionary(measurement["user"]) else {
+            throw QNMeasurementRepositoryError.invalidMeasurement("QNScaleData 缺少 user")
+        }
+        guard let measureTime = date(scale["measureTime"]) else {
+            throw QNMeasurementRepositoryError.invalidMeasurement("QNScaleData measureTime 无法解析：\(string(scale["measureTime"]) ?? "<nil>")")
         }
         let metadata = dictionary(measurement["metadata"]) ?? [:]
         let items = dictionaries(measurement["items"])
@@ -86,7 +92,11 @@ enum QNMeasurementMapper {
 
     static func date(_ value: Any?) -> Date? {
         guard let string = value as? String else { return nil }
-        return ISO8601DateFormatter().date(from: string) ?? {
+        let fractionalFormatter = ISO8601DateFormatter()
+        fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let internetFormatter = ISO8601DateFormatter()
+        internetFormatter.formatOptions = [.withInternetDateTime]
+        return fractionalFormatter.date(from: string) ?? internetFormatter.date(from: string) ?? {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "yyyy-MM-dd"
