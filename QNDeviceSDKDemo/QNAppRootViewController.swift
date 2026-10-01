@@ -88,6 +88,11 @@ private struct QNDashboardView: View {
                     } else {
                         QNEmptyState(title: "开始建立你的身体数据", message: "连接体脂秤完成第一次测量后，数据会保存在此 iPhone 上。", buttonTitle: "开始第一次测量", action: onMeasure)
                     }
+                    if store.pendingMeasurement != nil {
+                        QNButton(title: "重试保存本次测量", systemImage: "arrow.clockwise") {
+                            store.retryPendingSave()
+                        }
+                    }
                     if let error = store.lastError { Text(error).font(.footnote).foregroundStyle(.red) }
                 }
                 .padding(20)
