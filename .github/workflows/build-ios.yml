@@ -1,0 +1,154 @@
+name: Build QNScaleTest IPA
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    name: iPhone arm64 / Xcode 26.5
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      PROJECT: QNDeviceSDKDemo.xcodeproj
+      SCHEME: QNDeviceSDKDemo
+      CONFIGURATION: Release
+      DERIVED_DATA: build/DerivedData
+      RESULT_BUNDLE: build/QNScaleTest.xcresult
+      LOG_DIR: build/logs
+      XCODEBUILD_LOG: build/logs/xcodebuild.log
+      SDK_LIBRARY: QNSDK/SDK/libQNDeviceSDK.a
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Select Xcode 26.5
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d /Applications/Xcode_26.5.app
+          sudo xcode-select --switch /Applications/Xcode_26.5.app
+          xcodebuild -version
+
+      - name: Inspect project and QNSDK binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$LOG_DIR"
+          {
+            echo "== Host =="
+            sw_vers
+            uname -m
+            echo "== Xcode =="
+            xcodebuild -version
+            xcrun --sdk iphoneos --show-sdk-version
+            echo "== Shared schemes =="
+            xcodebuild -list -project "$PROJECT"
+            echo "== QNSDK binary =="
+            file "$SDK_LIBRARY"
+            lipo -info "$SDK_LIBRARY"
+            echo "Bitcode section string counts:"
+            printf '__LLVM=' && (strings "$SDK_LIBRARY" | grep -c '__LLVM' || true)
+            printf '__bitcode=' && (strings "$SDK_LIBRARY" | grep -c '__bitcode' || true)
+            echo "Relevant arm64 Mach-O load commands:"
+            (otool -arch arm64 -l "$SDK_LIBRARY" | grep -E 'cmd LC_(BUILD_VERSION|VERSION_MIN_IPHONEOS)|platform |minos |version |sdk ' | sort -u || true)
+            echo "== Authorization resources =="
+            test -f QNDeviceSDKDemo/123456789.qn
+            shasum -a 256 QNDeviceSDKDemo/123456789.qn
+            stat -f 'size=%z bytes' QNDeviceSDKDemo/123456789.qn
+            echo "== Dependency mode =="
+            if [[ -f Podfile ]]; then
+              echo "Podfile present"
+            else
+              echo "No Podfile; using the vendored QNSDK library from the official repository"
+            fi
+          } 2>&1 | tee "$LOG_DIR/environment-and-sdk.log"
+
+      - name: Install CocoaPods dependencies when present
+        if: ${{ hashFiles('Podfile') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pod install --repo-update 2>&1 | tee "$LOG_DIR/pod-install.log"
+
+      - name: Build unsigned iPhone arm64 app
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -o pipefail
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            -resultBundlePath "$RESULT_BUNDLE" \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY= \
+            CODE_SIGN_ENTITLEMENTS= \
+            DEVELOPMENT_TEAM= \
+            ENABLE_BITCODE=NO \
+            PRODUCT_NAME=QNScaleTest \
+            clean build 2>&1 | tee "$XCODEBUILD_LOG"
+
+      - name: Verify and package IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$DERIVED_DATA/Build/Products/$CONFIGURATION-iphoneos/QNScaleTest.app"
+          EXECUTABLE_PATH="$APP_PATH/QNScaleTest"
+          PACKAGE_ROOT="build/package"
+          IPA_PATH="build/QNScaleTest.ipa"
+
+          test -d "$APP_PATH"
+          test -f "$EXECUTABLE_PATH"
+          test -f "$APP_PATH/123456789.qn"
+
+          {
+            echo "== App product =="
+            echo "path=$APP_PATH"
+            file "$EXECUTABLE_PATH"
+            lipo -info "$EXECUTABLE_PATH"
+            plutil -p "$APP_PATH/Info.plist"
+            echo "== Required bundle resources =="
+            shasum -a 256 "$APP_PATH/123456789.qn"
+          } 2>&1 | tee "$LOG_DIR/app-verification.log"
+
+          mkdir -p "$PACKAGE_ROOT/Payload"
+          ditto "$APP_PATH" "$PACKAGE_ROOT/Payload/QNScaleTest.app"
+          (
+            cd "$PACKAGE_ROOT"
+            /usr/bin/zip -qry "../QNScaleTest.ipa" Payload
+          )
+          test -f "$IPA_PATH"
+          unzip -l "$IPA_PATH" | tee "$LOG_DIR/ipa-contents.log"
+
+      - name: Upload QNScaleTest IPA
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: QNScaleTest-ipa
+          path: build/QNScaleTest.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: QNScaleTest-build-logs
+          path: |
+            build/logs
+            build/QNScaleTest.xcresult
+          if-no-files-found: warn
+          retention-days: 14
