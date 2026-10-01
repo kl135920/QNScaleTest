@@ -285,6 +285,7 @@ final class QNMeasurementRepository {
         let device: [String: Any] = ["bluetoothName": snapshot.bluetoothName ?? NSNull(), "deviceIdentifier": snapshot.deviceIdentifier ?? NSNull(), "modeId": snapshot.modeId ?? NSNull(), "sdkDeviceType": snapshot.sdkDeviceType ?? NSNull(), "sdkVersion": snapshot.sdkVersion ?? NSNull()]
         let rawItems: Any = snapshot.rawItemsJSON.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } ?? NSNull()
         let rawQNData: Any = snapshot.rawMeasurementJSON.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } ?? NSNull()
+        let derivation: [String: Any] = ["boneMassPercentage": snapshot.boneMassPercentage ?? NSNull(), "version": snapshot.derivationVersion ?? NSNull(), "formula": "boneMass(type8) / weight(type1) * 100"]
         return [
             "id": snapshot.id.uuidString,
             "deduplicationKey": snapshot.deduplicationKey,
@@ -298,7 +299,7 @@ final class QNMeasurementRepository {
             "standardized": snapshot.metrics,
             "device": device,
             "referenceRulesVersion": snapshot.referenceRulesVersion ?? NSNull(),
-            "derivation": ["boneMassPercentage": snapshot.boneMassPercentage ?? NSNull(), "version": snapshot.derivationVersion ?? NSNull(), "formula": "boneMass(type8) / weight(type1) * 100"],
+            "derivation": derivation,
             "rawItems": rawItems,
             "rawQNData": rawQNData
         ]
