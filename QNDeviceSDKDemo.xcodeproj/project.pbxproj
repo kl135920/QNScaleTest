@@ -91,6 +91,7 @@
 		A20000000000000000000001 /* QNScaleTestPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* QNScaleTestPersistenceTests.swift */; };
 		A20000000000000000000002 /* QNScaleMeasurementFixture.redacted.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* QNScaleMeasurementFixture.redacted.json */; };
 		A20000000000000000000003 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* XCTest.framework */; };
+		A30000000000000000000001 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A30000000000000000000002 /* HealthKit.framework */; };
 		A20000000000000000000004 /* QNMeasurementManagedObject.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* QNMeasurementManagedObject.swift */; };
 		A20000000000000000000005 /* QNMetricCatalog.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* QNMetricCatalog.swift */; };
 		A20000000000000000000006 /* QNMeasurementRepository.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* QNMeasurementRepository.swift */; };
@@ -260,6 +261,7 @@
 		A20000000000000000000013 /* QNScaleTestTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QNScaleTestTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000014 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		A20000000000000000000015 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		A30000000000000000000002 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		A1000000000000000000000B /* V1.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = V1.xcdatamodel; sourceTree = "<group>"; };
 		A1000000000000000000000D /* V2.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = V2.xcdatamodel; sourceTree = "<group>"; };
 		A1000000000000000000000C /* QNScaleModel.xcdatamodeld */ = {isa = XCVersionGroup; children = (A1000000000000000000000B /* V1.xcdatamodel */, A1000000000000000000000D /* V2.xcdatamodel */,); currentVersion = A1000000000000000000000D /* V2.xcdatamodel */; path = QNScaleModel.xcdatamodeld; sourceTree = "<group>"; versionGroupType = wrapper.xcdatamodel; };
@@ -333,6 +335,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				04BEB2C52320ED5F0068BF52 /* QNSDK.framework in Frameworks */,
+				A30000000000000000000001 /* HealthKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -416,6 +419,7 @@
 		D21FD20C205FABD6006450BC /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A30000000000000000000002 /* HealthKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -798,6 +802,9 @@
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
 							com.apple.AccessWiFi = {
+								enabled = 1;
+							};
+							com.apple.HealthKit = {
 								enabled = 1;
 							};
 						};

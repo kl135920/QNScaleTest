@@ -101,7 +101,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY= \
-            CODE_SIGN_ENTITLEMENTS= \
             DEVELOPMENT_TEAM= \
             ENABLE_BITCODE=NO \
             clean build 2>&1 | tee "$XCODEBUILD_LOG"
@@ -138,6 +137,17 @@ jobs:
           test -d "$APP_PATH"
           test -f "$EXECUTABLE_PATH"
           test -f "$APP_PATH/123456789.qn"
+          plutil -extract NSHealthShareUsageDescription raw "$APP_PATH/Info.plist" >/dev/null
+          plutil -extract NSHealthUpdateUsageDescription raw "$APP_PATH/Info.plist" >/dev/null
+          plutil -extract com.apple.developer.healthkit raw QNDeviceSDKDemo/QNDeviceSDKDemo.entitlements | grep -q true
+
+          # xcodebuild remains unsigned. This ad-hoc signature only preserves the
+          # requested HealthKit entitlement for SideStore's final re-signing.
+          codesign --force --deep --sign - \
+            --entitlements QNDeviceSDKDemo/QNDeviceSDKDemo.entitlements \
+            "$APP_PATH"
+          codesign -d --entitlements :- "$APP_PATH" > "$LOG_DIR/app-entitlements.plist"
+          plutil -extract com.apple.developer.healthkit raw "$LOG_DIR/app-entitlements.plist" | grep -q true
 
           {
             echo "== App product =="
@@ -145,6 +155,8 @@ jobs:
             file "$EXECUTABLE_PATH"
             lipo -info "$EXECUTABLE_PATH"
             plutil -p "$APP_PATH/Info.plist"
+            echo "== Embedded entitlements for SideStore re-signing =="
+            plutil -p "$LOG_DIR/app-entitlements.plist"
             echo "== Required bundle resources =="
             shasum -a 256 "$APP_PATH/123456789.qn"
           } 2>&1 | tee "$LOG_DIR/app-verification.log"

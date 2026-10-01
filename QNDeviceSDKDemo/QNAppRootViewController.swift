@@ -340,45 +340,108 @@ private struct QNMeasurementView: View {
     @EnvironmentObject private var store: QNAppStore
     @State private var report: QNMeasurementSnapshot?
     @State private var shareURL: QNShareItem?
-    @State private var selectedIndex: Int?
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("测量").font(.largeTitle.weight(.bold))
-                        Text(store.serviceState).font(.subheadline).foregroundStyle(.secondary)
-                        HStack { Text("实时重量").foregroundStyle(.secondary); Spacer(); Text(store.weight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "—").font(.title2.weight(.semibold).monospacedDigit()) }
-                            .padding(16).background(QNDesign.card).clipShape(RoundedRectangle(cornerRadius: 16))
-                        Text(store.measurementState).font(.headline)
-                        Text("请赤脚站上体脂秤，并握住手柄。名称 QN-Scale 与型号仅作提示，可手动选择扫描到的设备。").font(.footnote).foregroundStyle(.secondary)
-                        ForEach(Array(store.devices.enumerated()), id: \.element.id) { index, device in
-                            Button { selectedIndex = index } label: {
-                                HStack {
-                                    Image(systemName: selectedIndex == index ? "checkmark.circle.fill" : "circle").foregroundStyle(QNDesign.blue)
-                                    VStack(alignment: .leading) { Text(device.name); Text("\(device.modeId) · \(device.deviceType) · \(device.supportsEightElectrodes ? "八电极" : "普通")").font(.caption).foregroundStyle(.secondary) }
-                                    Spacer(); Text(device.rssi).font(.caption).foregroundStyle(.secondary)
-                                }.padding(12).background(QNDesign.card).clipShape(RoundedRectangle(cornerRadius: 14))
-                            }.buttonStyle(.plain)
-                        }
-                    }.padding(20)
-                }
-                HStack(spacing: 12) {
-                    QNButton(title: "扫描", systemImage: "antenna.radiowaves.left.and.right") { store.startScan() }
-                    if store.isConnected {
-                        QNButton(title: "断开", systemImage: "link.badge.minus") { store.disconnect() }
-                    } else {
-                        QNButton(title: "连接", systemImage: "link") { if let selectedIndex { store.connect(index: selectedIndex) } }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack(alignment: .center) {
+                        Text("测量").font(.system(size: 36, weight: .bold, design: .rounded))
+                        Spacer()
+                        Label(connectionTitle, systemImage: "bluetooth")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(connectionTint)
+                            .padding(.horizontal, 13).padding(.vertical, 8)
+                            .background(connectionTint.opacity(0.12))
+                            .clipShape(Capsule())
                     }
-                }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 12).background(.bar)
+
+                    VStack(spacing: 16) {
+                        Text(store.activeDeviceName)
+                            .font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
+
+                        HStack(alignment: .lastTextBaseline, spacing: 8) {
+                            Text(store.weight.map { store.displayWeightUnit.text(fromKilograms: $0) } ?? "--")
+                                .font(.system(size: 68, weight: .bold, design: .rounded).monospacedDigit())
+                                .minimumScaleFactor(0.65)
+                            Text(store.displayWeightUnit.symbol)
+                                .font(.title2.weight(.semibold)).foregroundStyle(.secondary)
+                        }
+                        Text("实时重量").font(.headline).foregroundStyle(.secondary)
+
+                        HStack(spacing: 10) {
+                            if !store.isConnected || store.service.connectionState == "连接中" || store.measurementState == "实时重量" {
+                                ProgressView().tint(QNDesign.blue)
+                            }
+                            Text(measurementStatus)
+                                .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                        }
+
+                        ZStack(alignment: .bottom) {
+                            Image(systemName: figureSymbol)
+                                .resizable().scaledToFit()
+                                .symbolRenderingMode(.hierarchical)
+                                .foregroundStyle(QNDesign.blue)
+                                .frame(width: 128, height: 190)
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(QNDesign.blue.opacity(0.13))
+                                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(QNDesign.blue.opacity(0.45), lineWidth: 1.5))
+                                .frame(width: 118, height: 24)
+                        }
+                        .frame(height: 195)
+
+                        VStack(spacing: 6) {
+                            Text("请赤脚站上体脂秤并握住手柄")
+                                .font(.headline).multilineTextAlignment(.center)
+                            Text(store.isConnected ? "保持站姿，测量完成前请勿松开" : "正在自动查找并连接八电极体脂秤")
+                                .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        }
+
+                        Button {
+                            store.isConnected ? store.disconnectAndSuspendAutomaticConnection() : store.retryAutomaticConnection()
+                        } label: {
+                            Label(store.isConnected ? "断开连接" : "重新连接", systemImage: store.isConnected ? "link.badge.minus" : "arrow.clockwise")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity).padding(.vertical, 14)
+                                .background(QNDesign.blue.opacity(0.10))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain).foregroundStyle(QNDesign.blue)
+                    }
+                    .padding(.horizontal, 22).padding(.vertical, 20)
+                    .qnCard(cornerRadius: 26)
+
+                    if let error = store.lastError {
+                        Text(error).font(.footnote).foregroundStyle(.red)
+                    }
+                }
+                .padding(.horizontal, 18).padding(.top, 18).padding(.bottom, 30)
             }
-            .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+            .background(QNDesign.page.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarHidden(true)
+            .onAppear { store.beginAutomaticConnection() }
             .onChange(of: store.lastSavedMeasurement?.id) { _ in report = store.lastSavedMeasurement }
             .sheet(item: $report) { snapshot in QNReportSheet(snapshot: snapshot, onExport: { shareURL = store.export(snapshot).map { QNShareItem(url: $0) } }) }
             .sheet(item: $shareURL) { item in QNShareSheet(items: [item.url]) }
         }
+    }
+
+    private var connectionTitle: String {
+        if store.isConnected { return "已连接" }
+        if store.service.connectionState == "连接中" { return "连接中" }
+        return "自动查找"
+    }
+
+    private var connectionTint: Color { store.isConnected ? QNDesign.blue : .secondary }
+
+    private var measurementStatus: String {
+        if !store.isConnected { return store.service.connectionState == "连接中" ? "正在连接" : "正在查找设备" }
+        return store.measurementState == "等待连接" ? "等待测量" : store.measurementState
+    }
+
+    private var figureSymbol: String {
+        UIImage(systemName: "figure.arms.open") == nil ? "figure.stand" : "figure.arms.open"
     }
 }
 
@@ -950,11 +1013,35 @@ private struct QNProfileView: View {
                         Divider().padding(.leading, 54)
                         Button { shareURL = store.exportAllHistory().map { QNShareItem(url: $0) } } label: { QNSettingsRow(icon: "square.and.arrow.up", title: "导出全部记录", value: nil) }.buttonStyle(.plain)
                     }.qnCard(cornerRadius: 18)
+                    Text("Apple 健康").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
+                    VStack(spacing: 0) {
+                        Button { Task { await store.requestHealthKitAuthorization() } } label: {
+                            QNSettingsRow(icon: "heart.fill", title: "健康权限", value: store.healthKitStatus)
+                        }
+                        .buttonStyle(.plain).disabled(store.healthKitIsSyncing || !store.healthKitAvailable)
+                        Divider().padding(.leading, 54)
+                        HStack(spacing: 14) {
+                            Image(systemName: "arrow.triangle.2.circlepath").font(.headline).foregroundStyle(QNDesign.blue).frame(width: 26)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("测量后自动同步").font(.body.weight(.medium))
+                                Text("体重、BMI、体脂率、瘦体重").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Toggle("测量后自动同步", isOn: Binding(get: { store.healthKitAutoSyncEnabled }, set: { store.setHealthKitAutoSyncEnabled($0) }))
+                                .labelsHidden()
+                        }
+                        .padding(.horizontal, 16).padding(.vertical, 13)
+                        Divider().padding(.leading, 54)
+                        Button { Task { await store.syncWithHealthKit() } } label: {
+                            QNSettingsRow(icon: "arrow.up.arrow.down.circle", title: "立即双向同步", value: store.healthKitIsSyncing ? "同步中" : store.healthKitLastSyncSummary)
+                        }
+                        .buttonStyle(.plain).disabled(store.healthKitIsSyncing || !store.healthKitAvailable)
+                    }.qnCard(cornerRadius: 18)
                     Text("关于").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
                     VStack(spacing: 0) {
                         Button { showDeveloper = true } label: { QNSettingsRow(icon: "hammer", title: "开发者模式", value: nil) }.buttonStyle(.plain)
                         Divider().padding(.leading, 54)
-                        QNSettingsRow(icon: "hand.raised", title: "数据仅保存在此 iPhone", value: nil, showsChevron: false)
+                        QNSettingsRow(icon: "hand.raised", title: "本机保存，可选同步 Apple 健康", value: nil, showsChevron: false)
                     }.qnCard(cornerRadius: 18)
                 }
                 .padding(.horizontal, 16).padding(.top, 18).padding(.bottom, 28)

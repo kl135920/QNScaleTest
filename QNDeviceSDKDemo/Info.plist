@@ -31,6 +31,10 @@
 	<string>用于连接八电极智能体脂秤并读取测量数据。</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>用于连接八电极智能体脂秤并读取测量数据。</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>用于读取苹果健康中的体重、BMI、体脂率和瘦体重，并合并到本机测量历史。</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>用于将体脂秤测得的体重、BMI、体脂率和瘦体重写入苹果健康。</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UISupportedInterfaceOrientations</key>
