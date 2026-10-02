@@ -1053,7 +1053,7 @@ private struct QNProfileView: View {
                         QNSettingsRow(icon: "hand.raised", title: "本机保存，可选同步 Apple 健康", value: nil, showsChevron: false)
                     }.qnCard(cornerRadius: 18)
             }
-            .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 96)
+            .padding(.horizontal, 16).padding(.top, 0).padding(.bottom, 96)
         }
         .background(QNDesign.page.ignoresSafeArea())
         .sheet(isPresented: $showEditor) { QNProfileEditorView(profile: store.profile, isRequired: false) }

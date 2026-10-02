@@ -64,7 +64,7 @@ struct QNModernTrendView: View {
                     }
             }
             .padding(.horizontal, QNModernStyle.horizontalPadding)
-            .padding(.top, 8)
+            .padding(.top, 0)
             .padding(.bottom, 96)
         }
         .background(QNModernStyle.page.ignoresSafeArea())

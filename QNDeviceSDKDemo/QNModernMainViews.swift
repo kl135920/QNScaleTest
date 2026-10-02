@@ -4,6 +4,7 @@ struct QNModernDashboardView: View {
     @EnvironmentObject private var store: QNAppStore
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var report: QNMeasurementSnapshot?
+    @State private var reference: QNMeasurementSnapshot?
     @State private var shareItem: QNModernShareItem?
     let onMeasure: () -> Void
 
@@ -17,9 +18,8 @@ struct QNModernDashboardView: View {
     }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
                     header
                     if let latest {
                         Button { report = latest } label: {
@@ -64,7 +64,7 @@ struct QNModernDashboardView: View {
                             )
                         }
 
-                        NavigationLink(destination: QNModernMetricReferenceView(snapshot: latest)) {
+                        Button { reference = latest } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: "list.clipboard").foregroundStyle(QNModernStyle.action)
                                 Text("指标参考").font(.headline)
@@ -92,34 +92,35 @@ struct QNModernDashboardView: View {
                     if let error = store.lastError {
                         Text(error).font(.footnote).foregroundStyle(.red)
                     }
-                }
-                .padding(.horizontal, QNModernStyle.horizontalPadding)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
             }
-            .background(QNModernStyle.page.ignoresSafeArea())
-            .navigationBarHidden(true)
-            .overlay(alignment: .top) {
-                if let toast = store.toastMessage {
-                    Label(toast, systemImage: "checkmark.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(Color.black.opacity(0.82))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .padding(.top, 8)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-            }
-            .animation(.easeInOut(duration: 0.2), value: store.toastMessage)
-            .fullScreenCover(item: $report) { snapshot in
-                QNModernReportView(snapshot: snapshot) {
-                    shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
-                }
-            }
-            .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
+            .padding(.horizontal, QNModernStyle.horizontalPadding)
+            .padding(.top, 0)
+            .padding(.bottom, 96)
         }
+        .background(QNModernStyle.page.ignoresSafeArea())
+        .overlay(alignment: .top) {
+            if let toast = store.toastMessage {
+                Label(toast, systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.black.opacity(0.82))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.top, 4)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: store.toastMessage)
+        .sheet(item: $reference) { snapshot in
+            QNModernMetricReferenceSheet(snapshot: snapshot)
+        }
+        .fullScreenCover(item: $report) { snapshot in
+            QNModernReportView(snapshot: snapshot) {
+                shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
+            }
+        }
+        .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
     }
 
     private var header: some View {
@@ -194,7 +195,7 @@ struct QNModernMeasurementView: View {
                     }
             }
             .padding(.horizontal, QNModernStyle.horizontalPadding)
-            .padding(.top, 8)
+            .padding(.top, 0)
             .padding(.bottom, 96)
         }
         .background(QNModernStyle.page.ignoresSafeArea())
@@ -344,7 +345,9 @@ struct QNModernReportView: View {
     }
 
     var body: some View {
-        NavigationView {
+        VStack(spacing: 0) {
+            compactHeader
+            Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(snapshot.displayDate).font(.subheadline).foregroundStyle(.secondary)
@@ -384,16 +387,42 @@ struct QNModernReportView: View {
                     .qnModernCard(cornerRadius: 18)
                 }
                 .padding(.horizontal, QNModernStyle.horizontalPadding)
-                .padding(.vertical, 12)
-            }
-            .background(QNModernStyle.page.ignoresSafeArea())
-            .navigationTitle("测量报告")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }
-                ToolbarItem(placement: .primaryAction) { Button(action: onExport) { Image(systemName: "square.and.arrow.up") } }
+                .padding(.top, 10)
+                .padding(.bottom, 28)
             }
         }
+        .background(QNModernStyle.page.ignoresSafeArea())
+    }
+
+    private var compactHeader: some View {
+        HStack(spacing: 12) {
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 36, height: 36)
+                    .background(Color.primary.opacity(0.06))
+                    .clipShape(Circle())
+            }
+            .accessibilityLabel("关闭")
+            .foregroundStyle(QNModernStyle.action)
+            Spacer()
+            Text("测量报告")
+                .font(.headline)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Spacer()
+            Button(action: onExport) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.body.weight(.semibold))
+                    .frame(width: 36, height: 36)
+                    .background(Color.primary.opacity(0.06))
+                    .clipShape(Circle())
+            }
+            .accessibilityLabel("导出测量报告")
+            .foregroundStyle(QNModernStyle.action)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
     }
 
     private func reportTile(_ type: Int) -> some View {
@@ -533,5 +562,21 @@ private struct QNModernMetricReferenceView: View {
         }
         .padding(QNModernStyle.cardPadding)
         .qnModernCard()
+    }
+}
+
+private struct QNModernMetricReferenceSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let snapshot: QNMeasurementSnapshot
+
+    var body: some View {
+        NavigationView {
+            QNModernMetricReferenceView(snapshot: snapshot)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("关闭") { dismiss() }
+                    }
+                }
+        }
     }
 }
