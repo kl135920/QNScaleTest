@@ -179,6 +179,28 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Publish first xcodebuild error
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f "$XCODEBUILD_LOG" ]]; then
+            exit 0
+          fi
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          log_path = Path(os.environ["XCODEBUILD_LOG"])
+          lines = log_path.read_text(errors="replace").splitlines()
+          errors = [line.strip() for line in lines if " error:" in line or line.lstrip().startswith("error:")]
+          first = errors[0] if errors else "xcodebuild failed without an error line"
+          escaped = first.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+          print(f"::error title=First xcodebuild error::{escaped}")
+          summary = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          summary.write_text("## First xcodebuild error\n\n```text\n" + first + "\n```\n", encoding="utf-8")
+          PY
+
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v6
