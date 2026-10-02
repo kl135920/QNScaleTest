@@ -74,6 +74,17 @@ final class QNScaleTestVisualTests: XCTestCase {
         add(attachment)
         XCTAssertGreaterThan(image.size.width, 300)
         XCTAssertGreaterThan(image.pngData()?.count ?? 0, 10_000, "Screenshot must contain rendered content")
+        let bitmap = try XCTUnwrap(image.cgImage)
+        let data = try XCTUnwrap(bitmap.dataProvider?.data)
+        let bytes = try XCTUnwrap(CFDataGetBytePtr(data))
+        var colors = Set<UInt32>()
+        for y in stride(from: 0, to: bitmap.height, by: max(bitmap.height / 50, 1)) {
+            for x in stride(from: 0, to: bitmap.width, by: max(bitmap.width / 50, 1)) {
+                let offset = y * bitmap.bytesPerRow + x * (bitmap.bitsPerPixel / 8)
+                colors.insert(UInt32(bytes[offset]) << 16 | UInt32(bytes[offset + 1]) << 8 | UInt32(bytes[offset + 2]))
+            }
+        }
+        XCTAssertGreaterThan(colors.count, 8, "A blank or black screenshot is not valid visual evidence")
     }
 
     @MainActor
