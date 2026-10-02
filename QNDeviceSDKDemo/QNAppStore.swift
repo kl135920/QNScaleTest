@@ -64,6 +64,31 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
         service.initializeIfNeeded()
     }
 
+#if QN_UI_TESTING
+    // Only the standalone simulator test target defines this flag. Its SDK
+    // service is a test double; fixtures stay in an in-memory Core Data store.
+    init(uiTestingRepository: QNMeasurementRepository, profile: QNUserProfile, healthKit: QNHealthKitServiceProtocol) {
+        displayWeightUnit = .jin
+        healthKitAutoSyncEnabled = false
+        service = QNScaleService.shared()
+        repository = uiTestingRepository
+        healthKitService = healthKit
+        pendingURL = FileManager.default.temporaryDirectory.appendingPathComponent("qn-ui-test-\(UUID().uuidString).json")
+        super.init()
+        self.profile = profile
+        records = (try? uiTestingRepository.fetchAll()) ?? []
+        healthKitStatus = healthKit.writeAuthorizationStateText
+        healthKitReadStatus = healthKit.readAuthorizationStateText
+        service.delegate = self
+    }
+
+    func setUITestingMeasurement(state: String, weight: Double? = nil, saved: QNMeasurementSnapshot? = nil) {
+        measurementState = state
+        self.weight = weight
+        lastSavedMeasurement = saved
+    }
+#endif
+
     var hasValidProfile: Bool { profile?.isValid == true }
     var debugLog: String { service.debugLogText }
     var authorizationSummary: String { service.authorizationSummary }
@@ -280,7 +305,11 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
         DispatchQueue.main.async {
             self.pendingMeasurement = json
             self.persistPendingMeasurement(json)
-            guard let profile = self.profile, let repository = self.repository else { self.lastError = "测量收到，但资料或数据库不可用"; return }
+            guard let profile = self.profile, let repository = self.repository else {
+                self.measurementState = "保存失败"
+                self.lastError = "测量收到，但资料或数据库不可用；结果已保留，可重试"
+                return
+            }
             do {
                 let saved = try repository.save(measurement: json, profile: profile)
                 self.clearPendingMeasurement()
@@ -298,7 +327,12 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
     }
 
     func retryPendingSave() {
-        guard let pendingMeasurement, let profile, let repository else { return }
+        guard let pendingMeasurement else { return }
+        guard let profile, let repository else {
+            measurementState = "保存失败"
+            lastError = "资料或数据库不可用，暂时无法重试保存"
+            return
+        }
         do {
             let saved = try repository.save(measurement: pendingMeasurement, profile: profile)
             lastSavedMeasurement = saved

@@ -105,7 +105,7 @@ jobs:
             ENABLE_BITCODE=NO \
             clean build 2>&1 | tee "$XCODEBUILD_LOG"
 
-      - name: Run persistence and mapping tests
+      - name: Run persistence, mapping and native UI screenshot tests
         shell: bash
         run: |
           set -euo pipefail
@@ -121,9 +121,30 @@ jobs:
             -sdk iphonesimulator \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             -resultBundlePath "$TEST_RESULT" \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             test 2>&1 | tee "$TEST_LOG"
+
+      - name: Export actual SwiftUI simulator screenshots
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -d build/QNScaleTestTests.xcresult ]]; then
+            xcrun xcresulttool export attachments \
+              --path build/QNScaleTestTests.xcresult \
+              --output-path build/screenshots
+          fi
+
+      - name: Upload native UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: QNScaleTest-ui-screenshots
+          path: build/screenshots
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Verify and package IPA
         shell: bash
@@ -137,6 +158,11 @@ jobs:
           test -d "$APP_PATH"
           test -f "$EXECUTABLE_PATH"
           test -f "$APP_PATH/123456789.qn"
+          # Simulator service doubles and fixture injection must never enter IPA.
+          if nm "$EXECUTABLE_PATH" | grep -E 'QNSetScaleServiceTestState|setUITestingMeasurement|uiTestingRepository'; then
+            echo "Unexpected UI test code in Release app" >&2
+            exit 1
+          fi
           plutil -extract NSHealthShareUsageDescription raw "$APP_PATH/Info.plist" >/dev/null
           plutil -extract NSHealthUpdateUsageDescription raw "$APP_PATH/Info.plist" >/dev/null
           /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.healthkit' QNDeviceSDKDemo/QNDeviceSDKDemo.entitlements | grep -q true
@@ -209,5 +235,6 @@ jobs:
           path: |
             build/logs
             build/QNScaleTest.xcresult
+            build/QNScaleTestTests.xcresult
           if-no-files-found: warn
           retention-days: 14

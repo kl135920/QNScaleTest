@@ -58,7 +58,7 @@ private struct QNRootView: View {
     }
 }
 
-private enum QNAppTab: Int, CaseIterable, Identifiable {
+enum QNAppTab: Int, CaseIterable, Identifiable {
     case dashboard
     case trend
     case measurement
@@ -83,9 +83,13 @@ private enum QNAppTab: Int, CaseIterable, Identifiable {
     }
 }
 
-private struct QNMainTabView: View {
+struct QNMainTabView: View {
     @EnvironmentObject private var store: QNAppStore
     @State private var selectedTab: QNAppTab = .dashboard
+
+    init(initialTab: QNAppTab = .dashboard) {
+        _selectedTab = State(initialValue: initialTab)
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -102,6 +106,7 @@ private struct QNMainTabView: View {
                 .tabItem { Label(QNAppTab.profile.title, systemImage: QNAppTab.profile.icon) }
                 .tag(QNAppTab.profile)
         }
+        .modifier(QNHideSystemTabBar())
         .safeAreaInset(edge: .bottom, spacing: 0) {
             QNFloatingTabBar(selection: $selectedTab)
         }
@@ -109,40 +114,52 @@ private struct QNMainTabView: View {
     }
 }
 
+private struct QNHideSystemTabBar: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 16.0, *) {
+            content.toolbar(.hidden, for: .tabBar)
+        } else {
+            content // The hosting controller hides UITabBar on iOS 15.
+        }
+    }
+}
+
 private struct QNFloatingTabBar: View {
     @Binding var selection: QNAppTab
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 0) {
             ForEach(QNAppTab.allCases) { tab in
                 Button { selection = tab } label: {
-                    VStack(spacing: 3) {
+                    VStack(spacing: 2) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 18, weight: .semibold))
-                        Text(tab.title)
-                            .font(.caption2.weight(.semibold))
+                            .font(.system(size: 20, weight: .regular))
+                        if !dynamicTypeSize.isAccessibilitySize {
+                            Text(tab.title).font(.caption2.weight(.medium))
+                        }
                     }
                     .foregroundStyle(selection == tab ? QNDesign.blue : Color.secondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .background(selection == tab ? QNDesign.blue.opacity(0.10) : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .frame(minHeight: 44)
+                    .background {
+                        if selection == tab {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(QNDesign.blue.opacity(0.07))
+                                .frame(width: 54)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(tab.title)
                 .accessibilityAddTraits(selection == tab ? .isSelected : [])
             }
         }
-        .padding(5)
+        .padding(4)
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(Color.primary.opacity(0.10), lineWidth: 0.5)
-        )
-        .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 20)
-        .padding(.top, 6)
+        .padding(.top, 8)
         .padding(.bottom, 4)
     }
 }
@@ -1037,63 +1054,66 @@ private struct QNReferenceCard: View {
     }
 }
 
-private struct QNProfileView: View {
+struct QNProfileView: View {
     @EnvironmentObject private var store: QNAppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var showEditor = false
     @State private var showHistory = false
     @State private var showDeveloper = false
     @State private var shareURL: QNShareItem?
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                    Text("QNSCALE")
-                        .font(.caption2.weight(.bold))
-                        .tracking(1.2)
-                        .foregroundStyle(.secondary)
-                    Text("我的").font(.system(size: 34, weight: .bold))
+            VStack(alignment: .leading, spacing: QNModernStyle.sectionSpacing) {
+                    QNModernPageTitle(title: "我的")
                     if let profile = store.profile {
                         Button { showEditor = true } label: {
-                            HStack(spacing: 16) {
+                            HStack(spacing: 12) {
                                 Image(systemName: "person.crop.circle.fill")
-                                    .font(.system(size: 48)).foregroundStyle(QNDesign.blue)
-                                    .frame(width: 58, height: 58)
-                                    .background(QNDesign.blue.opacity(0.10)).clipShape(Circle())
+                                    .font(.system(size: 40, weight: .regular)).foregroundStyle(QNDesign.blue)
+                                    .frame(width: 44, height: 44)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(profile.nickname).font(.title3.weight(.bold))
+                                    Text(profile.nickname).font(.headline)
                                     Text("\(store.records.count) 条记录 · \(profile.genderText) · \(String(format: "%.0f", profile.height)) cm")
-                                        .font(.subheadline).foregroundStyle(.secondary)
+                                        .font(.footnote).foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right").foregroundStyle(.tertiary)
                             }
-                            .padding(18).qnCard()
+                            .padding(16).qnModernCard()
                         }
                         .buttonStyle(.plain)
                     }
-                    Text("身体目标").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
-                    Button { showEditor = true } label: {
-                        QNSettingsRow(icon: "target", title: "目标体重", value: store.profile?.targetWeight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "未设置")
-                    }.buttonStyle(.plain).qnCard(cornerRadius: 18)
-                    Text("显示设置").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
-                    HStack {
-                        Image(systemName: "scalemass").font(.headline).foregroundStyle(QNDesign.blue).frame(width: 26)
-                        Text("体重单位").font(.body.weight(.medium))
-                        Spacer()
-                        Picker("体重单位", selection: $store.displayWeightUnit) {
-                            Text("kg").tag(QNDisplayWeightUnit.kilogram)
-                            Text("斤").tag(QNDisplayWeightUnit.jin)
+                    QNModernSettingsSection(title: "偏好设置") {
+                        VStack(spacing: 0) {
+                            Button { showEditor = true } label: {
+                                QNSettingsRow(icon: "target", title: "目标体重", value: store.profile?.targetWeight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "未设置")
+                            }.buttonStyle(.plain)
+                            Divider().padding(.leading, 52)
+                            HStack(spacing: 12) {
+                                Image(systemName: "scalemass").foregroundStyle(QNDesign.blue).frame(width: 24)
+                                if dynamicTypeSize.isAccessibilitySize {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("体重单位").font(.body)
+                                        unitPicker
+                                    }
+                                } else {
+                                    Text("体重单位").font(.body)
+                                    Spacer()
+                                    unitPicker.frame(width: 138)
+                                }
+                            }
+                            .padding(.horizontal, 16).padding(.vertical, 12)
                         }
-                        .pickerStyle(.segmented).frame(width: 150)
                     }
-                    .padding(16).qnCard(cornerRadius: 18)
-                    Text("体脂秤").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
+                    QNModernSettingsSection(title: "体脂秤") {
                     HStack(spacing: 14) {
                         Image(systemName: "scalemass")
-                            .font(.headline)
+                            .font(.body)
                             .foregroundStyle(QNDesign.blue)
                             .frame(width: 26)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(deviceDisplayName).font(.body.weight(.medium))
+                            Text(deviceDisplayName).font(.body)
                             Text(deviceStatusText).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -1101,15 +1121,16 @@ private struct QNProfileView: View {
                             .fill(store.isConnected ? QNModernStyle.muscle : Color.secondary.opacity(0.35))
                             .frame(width: 8, height: 8)
                     }
-                    .padding(.horizontal, 16).padding(.vertical, 14)
-                    .qnCard(cornerRadius: 18)
-                    Text("数据管理").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                    }
+                    QNModernSettingsSection(title: "数据管理") {
                     VStack(spacing: 0) {
                         Button { showHistory = true } label: { QNSettingsRow(icon: "clock.arrow.circlepath", title: "历史记录", value: "\(store.records.count) 条") }.buttonStyle(.plain)
                         Divider().padding(.leading, 54)
                         Button { shareURL = store.exportAllHistory().map { QNShareItem(url: $0) } } label: { QNSettingsRow(icon: "square.and.arrow.up", title: "导出全部记录", value: nil) }.buttonStyle(.plain)
-                    }.qnCard(cornerRadius: 18)
-                    Text("Apple 健康").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
+                    }
+                    }
+                    QNModernSettingsSection(title: "Apple 健康") {
                     VStack(spacing: 0) {
                         Button { Task { await store.requestHealthKitAuthorization() } } label: {
                             QNHealthSettingsRow(
@@ -1122,10 +1143,10 @@ private struct QNProfileView: View {
                         .buttonStyle(.plain).disabled(store.healthKitIsSyncing || !store.healthKitAvailable)
                         Divider().padding(.leading, 54)
                         HStack(spacing: 14) {
-                            Image(systemName: "arrow.triangle.2.circlepath").font(.headline).foregroundStyle(QNDesign.blue).frame(width: 26)
+                            Image(systemName: "arrow.triangle.2.circlepath").font(.body).foregroundStyle(QNDesign.blue).frame(width: 26)
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("测量后自动同步").font(.body.weight(.medium))
-                                Text("体重、BMI、体脂率、瘦体重").font(.caption).foregroundStyle(.secondary)
+                                Text("测量后自动同步").font(.body).fixedSize(horizontal: false, vertical: true)
+                                Text("体重、BMI、体脂率、去脂体重").font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
                             Toggle("测量后自动同步", isOn: Binding(get: { store.healthKitAutoSyncEnabled }, set: { store.setHealthKitAutoSyncEnabled($0) }))
@@ -1142,18 +1163,20 @@ private struct QNProfileView: View {
                             )
                         }
                         .buttonStyle(.plain).disabled(store.healthKitIsSyncing || !store.healthKitAvailable)
-                    }.qnCard(cornerRadius: 18)
-                    Text("关于").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
+                    }
+                    }
+                    QNModernSettingsSection(title: "关于") {
                     VStack(spacing: 0) {
                         QNSettingsRow(icon: "info.circle", title: "QNScaleTest", value: appVersion, showsChevron: false)
                         Divider().padding(.leading, 54)
                         Button { showDeveloper = true } label: { QNSettingsRow(icon: "hammer", title: "开发者模式", value: nil) }.buttonStyle(.plain)
-                        Divider().padding(.leading, 54)
-                        QNSettingsRow(icon: "hand.raised", title: "本机保存，可选同步 Apple 健康", value: nil, showsChevron: false)
-                    }.qnCard(cornerRadius: 18)
+                    }
+                    }
+                    Text("数据保存在本机，可选择同步 Apple 健康。")
+                        .font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 4)
             }
             .padding(.horizontal, QNModernStyle.horizontalPadding)
-            .padding(.top, 0)
+            .padding(.top, QNModernStyle.pageTopPadding)
             .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
         .background(QNDesign.page.ignoresSafeArea())
@@ -1161,6 +1184,13 @@ private struct QNProfileView: View {
         .sheet(isPresented: $showHistory) { QNHistoryView() }
         .sheet(isPresented: $showDeveloper) { QNDeveloperView() }
         .sheet(item: $shareURL) { item in QNShareSheet(items: [item.url]) }
+    }
+
+    private var unitPicker: some View {
+        Picker("体重单位", selection: $store.displayWeightUnit) {
+            Text("kg").tag(QNDisplayWeightUnit.kilogram)
+            Text("斤").tag(QNDisplayWeightUnit.jin)
+        }.pickerStyle(.segmented)
     }
 
     private var deviceStatusText: String {
@@ -1187,20 +1217,30 @@ private struct QNProfileView: View {
 }
 
 private struct QNSettingsRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let icon: String
     let title: String
     let value: String?
     var showsChevron = true
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon).font(.headline).foregroundStyle(QNDesign.blue).frame(width: 26)
-            Text(title).font(.body.weight(.medium))
-            Spacer()
-            if let value { Text(value).foregroundStyle(.secondary) }
-            if showsChevron { Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary) }
+        HStack(spacing: 12) {
+            Image(systemName: icon).font(.body).foregroundStyle(QNDesign.blue).frame(width: 24)
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.body)
+                    if let value { Text(value).font(.subheadline).foregroundStyle(.secondary) }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            } else {
+                Text(title).font(.body)
+                Spacer(minLength: 8)
+                if let value { Text(value).font(.subheadline).foregroundStyle(.secondary) }
+            }
+            if showsChevron { Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary) }
         }
-        .padding(.horizontal, 16).padding(.vertical, 15)
+        .padding(.horizontal, 16).padding(.vertical, 12)
     }
 }
 
@@ -1212,14 +1252,14 @@ private struct QNHealthSettingsRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: icon).font(.headline).foregroundStyle(QNDesign.blue).frame(width: 26)
+            Image(systemName: icon).font(.body).foregroundStyle(QNDesign.blue).frame(width: 24)
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.body.weight(.medium)).lineLimit(1)
+                Text(title).font(.body).fixedSize(horizontal: false, vertical: true)
                 Text(subtitle).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if let trailing { Text(trailing).font(.caption).foregroundStyle(.secondary) }
             }
             Spacer(minLength: 8)
-            if let trailing { Text(trailing).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.trailing) }
-            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16).padding(.vertical, 13)
     }

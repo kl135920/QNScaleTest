@@ -264,6 +264,34 @@ final class QNScaleTestPersistenceTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(comparison.rows.first { $0.type == 3 }?.difference), -1.6, accuracy: 0.0001)
     }
 
+    func testWeightChangeUsesFlatTextAndPreservesJinPrecision() {
+        XCTAssertEqual(QNDisplayFormatter.weightChange(current: 83.35, previous: 83.35, unit: .jin), "与上次持平")
+        XCTAssertEqual(QNDisplayFormatter.weightChange(current: 83.35, previous: 83.75, unit: .jin), "较上次 -0.8 斤")
+        XCTAssertEqual(QNDisplayFormatter.weightChange(current: 83.35, previous: 83, unit: .kilogram), "较上次 +0.35 kg")
+        XCTAssertNil(QNDisplayFormatter.weightChange(current: 83.35, previous: nil, unit: .jin))
+        XCTAssertEqual(QNDisplayFormatter.metric(.nan, definition: QNMetricCatalog.definition(for: 1), weightUnit: .jin).number, "—")
+        XCTAssertNil(QNDisplayFormatter.metric(.nan, definition: QNMetricCatalog.definition(for: 1), weightUnit: .jin).unit)
+    }
+
+    func testTrendTicksAreNeatAndConstantValuesHaveBreathingRoom() {
+        for values in [[166.7, 170.4], [83.35], [26.5, 26.5], [0.0], []] {
+            let scale = QNTrendAxisScale.make(values: values, precision: 2)
+            XCTAssertLessThan(scale.lower, scale.upper)
+            XCTAssertGreaterThanOrEqual(scale.ticks.count, 2)
+            XCTAssertLessThanOrEqual(scale.ticks.count, 8)
+            for value in values { XCTAssertGreaterThanOrEqual(value, scale.lower); XCTAssertLessThanOrEqual(value, scale.upper) }
+            for tick in scale.ticks {
+                let formatted = QNDisplayFormatter.number(tick, maximumFractionDigits: scale.precision)
+                XCTAssertEqual(Double(formatted) ?? .nan, tick, accuracy: 0.000001)
+            }
+        }
+    }
+
+    func testSavedAndAbnormalStatesSurviveDeviceDisconnect() {
+        XCTAssertEqual(QNMeasurementUIState.resolve(sdkState: "初始化成功", bluetoothState: "开启", connectionState: "未连接", isScanning: false, deviceName: "QN-Scale", measurementState: "测量完成，已保存", weight: 84.2, operationError: nil), .completed)
+        XCTAssertEqual(QNMeasurementUIState.resolve(sdkState: "初始化成功", bluetoothState: "开启", connectionState: "已连接", isScanning: false, deviceName: "QN-Scale", measurementState: "测量异常，已保存原始结果", weight: 84.2, operationError: nil), .abnormal("测量异常，已保存原始结果"))
+    }
+
     private func measurement(date: String, weight: Double, identifier: String = "test-device") throws -> [String: Any] {
         var result = try fixture()
         var scaleData = try XCTUnwrap(result["scaleData"] as? [String: Any])

@@ -18,31 +18,23 @@ struct QNModernTrendView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: QNModernStyle.sectionSpacing) {
-                Text("QNSCALE HEALTH")
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.2)
-                    .foregroundStyle(.secondary)
                 HStack(alignment: .firstTextBaseline) {
-                    Text("趋势").font(.system(size: 34, weight: .bold))
+                    QNModernPageTitle(title: "趋势")
                     Spacer()
                     Button { showComparison = true } label: {
                         Label("对比", systemImage: "arrow.left.arrow.right")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.subheadline)
                     }
                     .disabled(store.records.count < 2)
                 }
 
                     Button { showMetricPicker = true } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("当前指标").font(.caption).foregroundStyle(.secondary)
-                                Text(metric.title).font(.headline)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.up.chevron.down").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                        HStack(spacing: 6) {
+                            Text(metric.title).font(.body.weight(.medium))
+                            Image(systemName: "chevron.down").font(.caption)
                         }
-                        .padding(.horizontal, 14).padding(.vertical, 11)
-                        .qnModernCard(cornerRadius: 15)
+                        .foregroundStyle(QNModernStyle.action)
+                        .frame(minHeight: 32)
                     }
                     .buttonStyle(.plain)
 
@@ -50,11 +42,11 @@ struct QNModernTrendView: View {
                         HStack(spacing: 8) {
                             ForEach(QNTrendRange.allCases) { item in
                                 Button(item.title) { range = item }
-                                    .font(.subheadline.weight(.semibold))
+                            .font(.subheadline.weight(.medium))
                                     .foregroundStyle(range == item ? .white : .primary)
-                                    .padding(.horizontal, 14).padding(.vertical, 8)
-                                    .background(range == item ? QNModernStyle.action : Color.primary.opacity(0.06))
-                                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                                    .padding(.horizontal, 12).padding(.vertical, 7)
+                                    .background(range == item ? QNModernStyle.action : Color.primary.opacity(0.04))
+                                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                             }
                         }
                     }
@@ -74,7 +66,7 @@ struct QNModernTrendView: View {
                 historySummary
             }
             .padding(.horizontal, QNModernStyle.horizontalPadding)
-            .padding(.top, 0)
+            .padding(.top, QNModernStyle.pageTopPadding)
             .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
         .background(QNModernStyle.page.ignoresSafeArea())
@@ -108,7 +100,7 @@ struct QNModernTrendView: View {
     private var historySummary: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("历史测量记录").font(.title3.weight(.bold))
+                Text("历史测量记录").font(.headline)
                 Spacer()
                 Button("全部记录") { showHistory = true }
                     .font(.subheadline.weight(.semibold))
@@ -162,12 +154,18 @@ struct QNModernTrendView: View {
                 statistic(title: "变化", value: statistics.change, signed: true)
             }
             Divider()
-            HStack {
-                Text("最低  \(formatted(statistics.minimum))")
-                Spacer()
-                Text("最高  \(formatted(statistics.maximum))")
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("最高  \(formatted(statistics.maximum))")
+                    Text("最低  \(formatted(statistics.minimum))")
+                }.font(.subheadline).foregroundStyle(.secondary)
+            } else {
+                HStack {
+                    Text("最高  \(formatted(statistics.maximum))")
+                    Spacer()
+                    Text("最低  \(formatted(statistics.minimum))")
+                }.font(.subheadline).foregroundStyle(.secondary)
             }
-            .font(.subheadline).foregroundStyle(.secondary)
         }
         .padding(QNModernStyle.cardPadding)
         .qnModernCard()
@@ -213,10 +211,12 @@ private struct QNModernMetricPicker: View {
 
 private struct QNModernTrendChart: View {
     @EnvironmentObject private var store: QNAppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let series: QNTrendSeries
     let metric: QNTrendMetric
     let allRecords: [QNMeasurementSnapshot]
     @State private var selectedID: UUID?
+    private let chartHeight: CGFloat = 220
 
     private var selectedPoint: QNTrendPoint? {
         series.points.first { $0.id == selectedID }
@@ -228,8 +228,9 @@ private struct QNModernTrendChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("单位：\(displayUnit ?? "无")")
-                .font(.caption).foregroundStyle(.secondary)
+            if let displayUnit {
+                Text("单位：\(displayUnit)").font(.caption).foregroundStyle(.secondary)
+            }
             GeometryReader { proxy in
                 ZStack {
                     Canvas { context, size in draw(context: &context, size: size) }
@@ -237,11 +238,20 @@ private struct QNModernTrendChart: View {
                         .contentShape(Rectangle())
                         .gesture(
                             DragGesture(minimumDistance: 0)
+                                .onChanged { value in selectNearest(at: value.location.x, width: proxy.size.width) }
                                 .onEnded { value in selectNearest(at: value.location.x, width: proxy.size.width) }
                         )
                 }
             }
-            .frame(height: 274)
+            .frame(height: chartHeight)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(metric.title)折线图")
+            .accessibilityValue(selectedPoint.map { "\(Self.fullDateFormatter.string(from: $0.record.measureTime))，\(formatted($0.value))" } ?? "\(series.points.count) 条有效记录，上下轻扫选择")
+            .accessibilityAdjustableAction { direction in
+                let index = series.points.firstIndex { $0.id == selectedID } ?? 0
+                let next = direction == .increment ? min(index + 1, series.points.count - 1) : max(index - 1, 0)
+                if series.points.indices.contains(next) { selectedID = series.points[next].id }
+            }
 
             if let point = selectedPoint {
                 selectedDetail(point)
@@ -276,17 +286,14 @@ private struct QNModernTrendChart: View {
         let delta = previous.map { point.value - $0 }
         return VStack(alignment: .leading, spacing: 5) {
             Text(Self.fullDateFormatter.string(from: point.record.measureTime)).font(.subheadline.weight(.semibold))
-            HStack {
-                Text(formatted(point.value)).font(.headline.monospacedDigit())
-                Spacer()
-                Text(delta.map { "较上一条 \(formatted($0, signed: true))" } ?? "没有更早的有效记录")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+            Text(formatted(point.value)).font(.headline.monospacedDigit())
+            Text(delta.map { "较上一条 \(formatted($0, signed: true))" } ?? "没有更早的有效记录")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 
     private func selectNearest(at x: CGFloat, width: CGFloat) {
-        let plot = plotRect(CGSize(width: width, height: 274))
+        let plot = plotRect(CGSize(width: width, height: chartHeight))
         selectedID = series.points.min(by: {
             abs(xPosition($0, plot: plot) - x) < abs(xPosition($1, plot: plot) - x)
         })?.id
@@ -295,7 +302,7 @@ private struct QNModernTrendChart: View {
     private func draw(context: inout GraphicsContext, size: CGSize) {
         guard !series.points.isEmpty else { return }
         let plot = plotRect(size)
-        let scale = yScale(displayValues)
+        let scale = QNTrendAxisScale.make(values: displayValues, precision: metric.definition.precision)
 
         for tick in scale.ticks {
             let y = yPosition(tick, scale: scale, plot: plot)
@@ -304,7 +311,7 @@ private struct QNModernTrendChart: View {
             grid.addLine(to: CGPoint(x: plot.maxX, y: y))
             context.stroke(grid, with: .color(Color.secondary.opacity(0.14)), style: StrokeStyle(lineWidth: 1, dash: [3, 5]))
             context.draw(
-                Text(QNDisplayFormatter.number(tick, maximumFractionDigits: scale.precision)).font(.caption2).foregroundColor(.secondary),
+                Text(QNDisplayFormatter.number(tick, maximumFractionDigits: scale.precision)).font(.system(size: 11)).foregroundColor(.secondary),
                 at: CGPoint(x: size.width - 2, y: y),
                 anchor: .trailing
             )
@@ -322,7 +329,7 @@ private struct QNModernTrendChart: View {
                 area.addLine(to: CGPoint(x: locations[0].x, y: plot.maxY))
                 area.closeSubpath()
                 context.fill(area, with: .linearGradient(
-                    Gradient(colors: [QNModernStyle.action.opacity(0.22), QNModernStyle.action.opacity(0.01)]),
+                    Gradient(colors: [QNModernStyle.action.opacity(0.10), QNModernStyle.action.opacity(0.005)]),
                     startPoint: CGPoint(x: 0, y: plot.minY),
                     endPoint: CGPoint(x: 0, y: plot.maxY)
                 ))
@@ -330,26 +337,26 @@ private struct QNModernTrendChart: View {
             var line = Path()
             line.move(to: locations[0])
             for location in locations.dropFirst() { line.addLine(to: location) }
-            context.stroke(line, with: .color(QNModernStyle.action), style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+            context.stroke(line, with: .color(QNModernStyle.action), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
         }
 
         for (index, location) in locations.enumerated() {
             let isSelected = series.points[index].id == selectedID
-            let radius: CGFloat = isSelected ? 5.5 : 4
+            let radius: CGFloat = isSelected ? 5 : 2.5
             let dot = Path(ellipseIn: CGRect(x: location.x - radius, y: location.y - radius, width: radius * 2, height: radius * 2))
             context.fill(dot, with: .color(Color(uiColor: .systemBackground)))
-            context.stroke(dot, with: .color(QNModernStyle.action), lineWidth: isSelected ? 3 : 2)
+            context.stroke(dot, with: .color(QNModernStyle.action), lineWidth: isSelected ? 2.5 : 1.5)
         }
 
-        let labelDates = [series.domainStart, series.domainStart.addingTimeInterval(series.domainEnd.timeIntervalSince(series.domainStart) / 2), series.domainEnd]
+        let labelDates = series.domainStart == series.domainEnd ? [series.domainStart] : [series.domainStart, series.domainStart.addingTimeInterval(series.domainEnd.timeIntervalSince(series.domainStart) / 2), series.domainEnd]
         let anchors: [UnitPoint] = [.leading, .center, .trailing]
         for index in labelDates.indices {
-            let fraction = index == 0 ? 0.0 : (index == 1 ? 0.5 : 1.0)
+            let fraction = labelDates.count == 1 ? 0.5 : (index == 0 ? 0.0 : (index == 1 ? 0.5 : 1.0))
             let x = plot.minX + plot.width * CGFloat(fraction)
             context.draw(
-                Text(Self.axisDateFormatter.string(from: labelDates[index])).font(.caption2).foregroundColor(.secondary),
+                Text(Self.axisDateFormatter.string(from: labelDates[index])).font(.system(size: 11)).foregroundColor(.secondary),
                 at: CGPoint(x: x, y: plot.maxY + 13),
-                anchor: anchors[index]
+                anchor: labelDates.count == 1 ? .center : anchors[index]
             )
         }
     }
@@ -362,47 +369,11 @@ private struct QNModernTrendChart: View {
         plot.minX + plot.width * CGFloat(series.xFraction(for: point.record.measureTime))
     }
 
-    private func yPosition(_ value: Double, scale: QNYScale, plot: CGRect) -> CGFloat {
+    private func yPosition(_ value: Double, scale: QNTrendAxisScale, plot: CGRect) -> CGFloat {
         let fraction = (value - scale.lower) / max(scale.upper - scale.lower, 0.000_001)
         return plot.maxY - plot.height * CGFloat(fraction)
     }
 
-    private func yScale(_ values: [Double]) -> QNYScale {
-        let rawMin = values.min() ?? 0
-        let rawMax = values.max() ?? rawMin
-        let magnitude = max(max(abs(rawMin), abs(rawMax)), 1)
-        let minimumSpan = max(magnitude * 0.04, metric.definition.precision == 0 ? 4 : 0.4)
-        let desiredSpan = max(rawMax - rawMin, minimumSpan) * 1.35
-        let rawStep = desiredSpan / 4
-        let exponent = floor(log10(max(rawStep, 0.000_001)))
-        let power = pow(10, exponent)
-        let fraction = rawStep / power
-        let niceFraction: Double
-        if fraction <= 1 { niceFraction = 1 }
-        else if fraction <= 2 { niceFraction = 2 }
-        else if fraction <= 2.5 { niceFraction = 2.5 }
-        else if fraction <= 5 { niceFraction = 5 }
-        else { niceFraction = 10 }
-        let step = niceFraction * power
-        var lower = floor((rawMin - (desiredSpan - (rawMax - rawMin)) / 2) / step) * step
-        var upper = ceil((rawMax + (desiredSpan - (rawMax - rawMin)) / 2) / step) * step
-        if lower == upper { lower -= step * 2; upper += step * 2 }
-        var ticks: [Double] = []
-        var value = lower
-        while value <= upper + step * 0.1, ticks.count < 8 {
-            ticks.append(value)
-            value += step
-        }
-        let precision = step >= 1 ? 0 : (step >= 0.1 ? 1 : 2)
-        return QNYScale(lower: lower, upper: upper, ticks: ticks, precision: precision)
-    }
-
-    private struct QNYScale {
-        let lower: Double
-        let upper: Double
-        let ticks: [Double]
-        let precision: Int
-    }
 
     private static let axisDateFormatter: DateFormatter = {
         let formatter = DateFormatter()

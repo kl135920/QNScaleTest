@@ -92,7 +92,7 @@ struct QNModernDashboardView: View {
                     }
             }
             .padding(.horizontal, QNModernStyle.horizontalPadding)
-            .padding(.top, 0)
+            .padding(.top, QNModernStyle.pageTopPadding)
             .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
         .background(QNModernStyle.page.ignoresSafeArea())
@@ -124,9 +124,9 @@ struct QNModernDashboardView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("身体数据").font(.system(size: 34, weight: .bold, design: .default))
+            QNModernPageTitle(title: "身体数据")
             Text(latest.map { "\($0.displayDate) · 最近测量" } ?? "还没有测量记录")
-                .font(.subheadline)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
         }
     }
@@ -143,7 +143,7 @@ struct QNModernDashboardView: View {
                     .font(.body.weight(.semibold))
                     .foregroundStyle(QNModernStyle.action)
                     .frame(width: 26)
-                Text(title).font(.body.weight(.semibold))
+                Text(title).font(.body)
                 Spacer(minLength: 8)
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
                 Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
@@ -157,25 +157,16 @@ struct QNModernDashboardView: View {
     @ViewBuilder
     private var goalCard: some View {
         if let target = store.profile?.targetWeight, let latestWeight = latest?.weight {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Label("目标进度", systemImage: "target").font(.headline)
-                    Spacer()
+            let remaining = store.displayWeightUnit.fromKilograms(abs(target - latestWeight))
+            let relation = remaining < 0.005 ? "与目标一致" : "还差 \(QNDisplayFormatter.number(remaining, maximumFractionDigits: 2)) \(store.displayWeightUnit.symbol)"
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: "target").foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
                     Text("目标 \(store.displayWeightUnit.text(fromKilograms: target)) \(store.displayWeightUnit.symbol)")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .font(.subheadline)
+                    Text(relation).font(.footnote).foregroundStyle(.secondary)
                 }
-                if let progress = store.goalProgress {
-                    if let fraction = progress.fraction {
-                        ProgressView(value: fraction).tint(QNModernStyle.action)
-                    }
-                    let remaining = store.displayWeightUnit.fromKilograms(abs(progress.targetWeight - progress.currentWeight))
-                    Text(progress.reached ? "已达到目标" : "距离目标 \(QNDisplayFormatter.number(remaining, maximumFractionDigits: 2)) \(store.displayWeightUnit.symbol)")
-                        .font(.subheadline.weight(.medium))
-                } else {
-                    let difference = store.displayWeightUnit.fromKilograms(target - latestWeight)
-                    Text("与目标相差 \(QNDisplayFormatter.number(difference, maximumFractionDigits: 2, signed: true)) \(store.displayWeightUnit.symbol)")
-                        .font(.subheadline.weight(.medium))
-                }
+                Spacer(minLength: 0)
             }
             .padding(QNModernStyle.cardPadding)
             .qnModernCard(cornerRadius: 18)
@@ -187,7 +178,7 @@ struct QNModernDashboardView: View {
             Image(systemName: "scalemass")
                 .font(.system(size: 36, weight: .medium))
                 .foregroundStyle(QNModernStyle.action)
-            Text("开始建立你的身体数据").font(.title3.weight(.bold))
+            Text("开始建立你的身体数据").font(.title3.weight(.semibold))
             Text("连接体脂秤完成第一次测量后，数据会保存在此 iPhone 上。")
                 .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             QNModernPrimaryButton(title: "开始第一次测量", systemImage: "arrow.right", action: onMeasure)
@@ -200,28 +191,22 @@ struct QNModernDashboardView: View {
 
 struct QNModernMeasurementView: View {
     @EnvironmentObject private var store: QNAppStore
+    @ScaledMetric(relativeTo: .largeTitle) private var weightSize: CGFloat = 54
     @State private var report: QNMeasurementSnapshot?
     @State private var shareItem: QNModernShareItem?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("QNSCALE")
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.2)
-                    .foregroundStyle(.secondary)
                 HStack(alignment: .firstTextBaseline) {
-                    Text("测量").font(.system(size: 34, weight: .bold))
+                    QNModernPageTitle(title: "测量")
                     Spacer()
                     connectionBadge
                 }
                 stateCard
-                if let error = store.lastError, case .failed = store.measurementUIState {
-                    Text(error).font(.footnote).foregroundStyle(.red)
-                }
             }
             .padding(.horizontal, QNModernStyle.horizontalPadding)
-            .padding(.top, 0)
+            .padding(.top, QNModernStyle.pageTopPadding)
             .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
         .background(QNModernStyle.page.ignoresSafeArea())
@@ -243,27 +228,27 @@ struct QNModernMeasurementView: View {
     }
 
     private var connectionBadge: some View {
-        Label(badgeTitle, systemImage: "bluetooth")
-            .font(.caption.weight(.semibold))
+        Text(badgeTitle)
+            .font(.caption)
             .foregroundStyle(store.isConnected ? QNModernStyle.action : .secondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background((store.isConnected ? QNModernStyle.action : Color.secondary).opacity(0.10))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private var badgeTitle: String {
         switch store.measurementUIState {
         case .scanning: return "扫描中"
         case .connecting: return "连接中"
-        case .connected(_), .measuring(_, _), .completed: return "已连接"
+        case .connected(_), .measuring(_, _), .completed, .abnormal: return store.isConnected ? "已连接" : "未连接"
         default: return "未连接"
         }
     }
 
     @ViewBuilder
     private var stateCard: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
+            QNModernScaleIllustration()
+                .frame(width: 124, height: 100)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             switch store.measurementUIState {
             case .unavailable(let message):
                 stateHeader(icon: "exclamationmark.triangle", title: "暂时无法测量", message: message, tint: .orange)
@@ -272,15 +257,19 @@ struct QNModernMeasurementView: View {
                 stateHeader(icon: "scalemass", title: "连接体脂秤", message: "唤醒体脂秤后，App 会自动查找并连接。", tint: QNModernStyle.action)
                 QNModernPrimaryButton(title: "开始连接", systemImage: "link") { store.retryAutomaticConnection() }
             case .scanning:
-                ProgressView().scaleEffect(1.2).tint(QNModernStyle.action)
-                stateText(title: "正在查找设备", message: "请唤醒附近的 QN-Scale。")
+                HStack(spacing: 8) {
+                    ProgressView().tint(QNModernStyle.action)
+                    Text("正在查找体脂秤").font(.headline)
+                }
+                Text("请唤醒附近的 QN-Scale，发现后将自动连接。")
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 secondaryButton(title: "取消查找", systemImage: "xmark") { store.cancelAutomaticConnection() }
             case .connecting(let name):
                 ProgressView().scaleEffect(1.2).tint(QNModernStyle.action)
-                stateText(title: "正在连接 \(name)", message: "连接通常只需要几秒钟。")
+                stateText(title: "正在连接 \(name)", message: "请保持体脂秤唤醒。")
                 secondaryButton(title: "取消", systemImage: "xmark") { store.cancelAutomaticConnection() }
             case .connected(let name):
-                stateHeader(icon: "checkmark.circle", title: name, message: "请赤脚站上体脂秤并握住手柄。", tint: QNModernStyle.action)
+                stateText(title: "请赤脚站秤并握住手柄", message: name)
                 Text("请保持站姿，测量完成前不要松开手柄。")
                     .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 secondaryButton(title: "断开连接", systemImage: "link.badge.minus") { store.disconnectAndSuspendAutomaticConnection() }
@@ -288,9 +277,9 @@ struct QNModernMeasurementView: View {
                 if let weight {
                     HStack(alignment: .lastTextBaseline, spacing: 7) {
                         Text(store.displayWeightUnit.text(fromKilograms: weight))
-                            .font(.system(size: 60, weight: .bold, design: .rounded).monospacedDigit())
-                            .minimumScaleFactor(0.7)
-                        Text(store.displayWeightUnit.symbol).font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+                            .font(.system(size: weightSize, weight: .semibold).monospacedDigit())
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(store.displayWeightUnit.symbol).font(.title3).foregroundStyle(.secondary)
                     }
                     Text("实时重量").font(.subheadline).foregroundStyle(.secondary)
                 }
@@ -307,7 +296,7 @@ struct QNModernMeasurementView: View {
                     icon: "checkmark.circle.fill",
                     title: isSaved ? "测量结果已保存" : "测量完成",
                     message: isSaved ? "正在打开本次测量报告。" : "正在保存本次测量结果。",
-                    tint: QNModernStyle.muscle
+                    tint: QNModernStyle.action
                 )
                 if isSaved, let snapshot = store.lastSavedMeasurement {
                     secondaryButton(title: "查看本次报告", systemImage: "doc.text.magnifyingglass") {
@@ -316,12 +305,24 @@ struct QNModernMeasurementView: View {
                 }
             case .failed(let message):
                 stateHeader(icon: "exclamationmark.circle", title: "连接或测量失败", message: message, tint: .red)
+                if store.pendingMeasurement != nil {
+                    QNModernPrimaryButton(title: "重试保存本次测量", systemImage: "arrow.clockwise") { store.retryPendingSave() }
+                } else {
+                    retryButton
+                }
+            case .abnormal(let message):
+                stateHeader(icon: "exclamationmark.triangle", title: "测量异常", message: message, tint: QNModernStyle.fat)
+                if let snapshot = store.lastSavedMeasurement {
+                    if let mask = snapshot.eightReasonMask {
+                        Text("SDK eightReasonMask：\(mask)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    secondaryButton(title: "查看本次报告", systemImage: "doc.text") { report = snapshot }
+                }
                 retryButton
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 22)
-        .padding(.vertical, 28)
+        .padding(20)
         .qnModernCard(cornerRadius: 20)
     }
 
@@ -332,7 +333,7 @@ struct QNModernMeasurementView: View {
     private func stateHeader(icon: String, title: String, message: String, tint: Color) -> some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 38, weight: .medium))
+                .font(.system(size: 24, weight: .regular))
                 .foregroundStyle(tint)
             stateText(title: title, message: message)
         }
@@ -340,7 +341,7 @@ struct QNModernMeasurementView: View {
 
     private func stateText(title: String, message: String) -> some View {
         VStack(spacing: 6) {
-            Text(title).font(.title3.weight(.bold)).multilineTextAlignment(.center)
+            Text(title).font(.headline).multilineTextAlignment(.center)
             Text(message).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
     }
@@ -348,14 +349,37 @@ struct QNModernMeasurementView: View {
     private func secondaryButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(QNModernStyle.action.opacity(0.10))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .font(.subheadline)
+                .frame(minHeight: 44)
         }
         .buttonStyle(.plain)
         .foregroundStyle(QNModernStyle.action)
+    }
+}
+
+struct QNModernScaleIllustration: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(Color.secondary.opacity(0.035))
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.secondary.opacity(0.3), lineWidth: 1.5)
+            VStack(spacing: 14) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.secondary.opacity(0.16))
+                    .frame(width: 40, height: 16)
+                HStack(spacing: 32) {
+                    footPad
+                    footPad
+                }
+            }
+        }
+    }
+
+    private var footPad: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .stroke(Color.secondary.opacity(0.28), lineWidth: 1)
+            .frame(width: 23, height: 35)
     }
 }
 
@@ -379,7 +403,7 @@ struct QNModernReportView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(snapshot.displayDate).font(.subheadline).foregroundStyle(.secondary)
                     QNModernReportWeight(snapshot: snapshot)
-                    Text("身体指标").font(.title2.weight(.bold))
+                    Text("身体指标").font(.title3.weight(.semibold))
                     LazyVGrid(columns: columns, spacing: 10) {
                         ForEach(QNMetricCatalog.reportTypes.filter { $0 != 1 }, id: \.self) { type in
                             reportTile(type)
@@ -428,30 +452,25 @@ struct QNModernReportView: View {
             Button { dismiss() } label: {
                 Image(systemName: "chevron.left")
                     .font(.body.weight(.semibold))
-                    .frame(width: 36, height: 36)
-                    .background(Color.primary.opacity(0.06))
-                    .clipShape(Circle())
+                    .frame(width: 44, height: 44)
             }
             .accessibilityLabel("返回")
             .foregroundStyle(QNModernStyle.action)
             Spacer()
             Text("测量报告")
                 .font(.headline)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer()
             Button(action: onExport) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.body.weight(.semibold))
-                    .frame(width: 36, height: 36)
-                    .background(Color.primary.opacity(0.06))
-                    .clipShape(Circle())
+                    .frame(width: 44, height: 44)
             }
             .accessibilityLabel("导出测量报告")
             .foregroundStyle(QNModernStyle.action)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 6)
+        .padding(.vertical, 2)
         .background(QNModernStyle.card)
     }
 
@@ -465,7 +484,7 @@ struct QNModernReportView: View {
             value: value,
             definition: definition,
             icon: icon(for: type),
-            accent: type == 3 || type == 21 || type == 35 ? QNModernStyle.fat : QNModernStyle.action,
+            accent: QNModernStyle.action,
             evaluation: evaluation
         )
     }
@@ -488,15 +507,18 @@ struct QNModernReportView: View {
 
 private struct QNModernReportWeight: View {
     @EnvironmentObject private var store: QNAppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .largeTitle) private var numberSize: CGFloat = 54
     let snapshot: QNMeasurementSnapshot
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("体重").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            Text("体重").font(.subheadline).foregroundStyle(.secondary)
             HStack(alignment: .lastTextBaseline, spacing: 6) {
                 Text(snapshot.weight.map { store.displayWeightUnit.text(fromKilograms: $0) } ?? "—")
-                    .font(.system(size: 46, weight: .bold, design: .rounded).monospacedDigit())
+                    .font(.system(size: numberSize, weight: .semibold).monospacedDigit())
+                    .fixedSize(horizontal: false, vertical: true)
                 if snapshot.weight != nil {
-                    Text(store.displayWeightUnit.symbol).font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+                    Text(store.displayWeightUnit.symbol).font(.title3).foregroundStyle(.secondary)
                 }
             }
             if snapshot.isAbnormal {

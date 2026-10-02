@@ -37,7 +37,7 @@ enum QNDisplayFormatter {
         weightUnit: QNDisplayWeightUnit,
         signed: Bool = false
     ) -> (number: String, unit: String?) {
-        guard let value else { return ("—", nil) }
+        guard let value, value.isFinite else { return ("—", nil) }
         let isMass = definition.unit == "kg"
         let displayValue = isMass ? weightUnit.fromKilograms(value) : value
         let unit = isMass ? weightUnit.symbol : definition.unit
@@ -48,6 +48,12 @@ enum QNDisplayFormatter {
         let formatted = metric(value, definition: definition, weightUnit: weightUnit, signed: signed)
         guard let unit = formatted.unit else { return formatted.number }
         return "\(formatted.number) \(unit)"
+    }
+
+    static func weightChange(current: Double?, previous: Double?, unit: QNDisplayWeightUnit) -> String? {
+        guard let current, let previous, current.isFinite, previous.isFinite else { return nil }
+        let number = number(unit.fromKilograms(current - previous), maximumFractionDigits: 2, signed: true)
+        return number == "0" ? "与上次持平" : "较上次 \(number) \(unit.symbol)"
     }
 }
 
@@ -70,7 +76,7 @@ enum QNMeasurementTimeline {
 
     static func previousValidWeight(before record: QNMeasurementSnapshot, in records: [QNMeasurementSnapshot]) -> QNMeasurementSnapshot? {
         ordered(records.filter { candidate in
-            candidate.id != record.id && candidate.weight != nil && isEarlier(candidate, than: record)
+            candidate.id != record.id && candidate.weight?.isFinite == true && isEarlier(candidate, than: record)
         }, ascending: false).first
     }
 
@@ -189,7 +195,8 @@ enum QNBodyRegion: String, CaseIterable, Identifiable {
 
     func value(type: Int, in snapshot: QNMeasurementSnapshot) -> Double? {
         let definition = QNMetricCatalog.definition(for: type)
-        return snapshot.metrics[QNHistoryComparisonService.key(for: type)] ?? snapshot.metrics["type\(definition.id)"]
+        let value = snapshot.metrics[QNHistoryComparisonService.key(for: type)] ?? snapshot.metrics["type\(definition.id)"]
+        return value?.isFinite == true ? value : nil
     }
 
     func hasValue(showFat: Bool, in snapshot: QNMeasurementSnapshot) -> Bool {
@@ -299,6 +306,32 @@ struct QNTrendSeries {
     }
 }
 
+struct QNTrendAxisScale {
+    let lower: Double
+    let upper: Double
+    let ticks: [Double]
+    let precision: Int
+
+    static func make(values: [Double], precision: Int) -> QNTrendAxisScale {
+        let finite = values.filter(\.isFinite)
+        let minimum = finite.min() ?? 0
+        let maximum = finite.max() ?? minimum
+        let magnitude = max(max(abs(minimum), abs(maximum)), 1)
+        let span = max(maximum - minimum, max(magnitude * 0.04, precision == 0 ? 4 : 0.4)) * 1.35
+        let rawStep = span / 4
+        let power = pow(10, floor(log10(max(rawStep, 0.000_001))))
+        let fraction = rawStep / power
+        let step = (fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10) * power
+        let margin = (span - (maximum - minimum)) / 2
+        let lower = floor((minimum - margin) / step) * step
+        let upper = ceil((maximum + margin) / step) * step
+        let count = Int(((upper - lower) / step).rounded())
+        let ticks = (0...max(count, 1)).map { lower + Double($0) * step }
+        let digits = max(0, Int(-floor(log10(step))))
+        return .init(lower: lower, upper: max(upper, lower + step), ticks: ticks, precision: digits)
+    }
+}
+
 enum QNMeasurementUIState: Equatable {
     case unavailable(String)
     case disconnected
@@ -307,6 +340,7 @@ enum QNMeasurementUIState: Equatable {
     case connected(String)
     case measuring(weight: Double?, state: String)
     case completed
+    case abnormal(String)
     case failed(String)
 
     static func resolve(
@@ -322,11 +356,13 @@ enum QNMeasurementUIState: Equatable {
         if sdkState == "初始化失败" { return .unavailable(operationError ?? "SDK 初始化失败") }
         if bluetoothState == "关闭" || bluetoothState == "未授权" { return .unavailable("蓝牙\(bluetoothState)") }
         if measurementState.contains("失败") { return .failed(operationError ?? measurementState) }
+        // Saving is authoritative even if the scale disconnects afterwards.
+        if measurementState.contains("异常") { return .abnormal(measurementState) }
+        if measurementState.contains("测量完成") { return .completed }
         if connectionState == "连接失败" { return .failed(operationError ?? "连接失败，请重试") }
         if connectionState == "连接中" { return .connecting(deviceName) }
         if isScanning && connectionState != "已连接" { return .scanning }
         guard connectionState == "已连接" else { return .disconnected }
-        if measurementState.contains("测量完成") { return .completed }
         let activeStates = ["开始测量", "实时体重", "测量生物阻抗", "测量心率"]
         if activeStates.contains(measurementState) { return .measuring(weight: weight, state: measurementState) }
         return .connected(deviceName)

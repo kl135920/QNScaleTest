@@ -107,6 +107,15 @@
 		A2000000000000000000000C /* QNScaleModel.xcdatamodeld in Tests */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* QNScaleModel.xcdatamodeld */; };
 		A2000000000000000000000D /* CoreData.framework in Tests */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* CoreData.framework */; };
 		A2000000000000000000000E /* QNPresentationModels.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* QNPresentationModels.swift */; };
+		A40000000000000000000001 /* QNScaleTestVisualTests.swift in Tests */ = {isa = PBXBuildFile; fileRef = A40000000000000000000011; };
+		A40000000000000000000002 /* QNScaleServiceStub.m in Tests */ = {isa = PBXBuildFile; fileRef = A40000000000000000000012; };
+		A40000000000000000000003 /* QNAppStore.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008; };
+		A40000000000000000000004 /* QNAppRootViewController.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009; };
+		A40000000000000000000005 /* QNModernComponents.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000025; };
+		A40000000000000000000006 /* QNModernMainViews.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000026; };
+		A40000000000000000000007 /* QNModernTrendViews.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027; };
+		A40000000000000000000008 /* QNHealthKitService.swift in Tests */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A; };
+		A40000000000000000000009 /* HealthKit.framework in Tests */ = {isa = PBXBuildFile; fileRef = A30000000000000000000002; };
 		D232D64F2004DE2D00AABD67 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = D232D64E2004DE2D00AABD67 /* ViewController.m */; };
 		D232D6522004DE2D00AABD67 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D232D6502004DE2D00AABD67 /* Main.storyboard */; };
 		D232D6542004DE2D00AABD67 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D232D6532004DE2D00AABD67 /* Assets.xcassets */; };
@@ -270,6 +279,9 @@
 		A20000000000000000000013 /* QNScaleTestTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QNScaleTestTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000014 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		A20000000000000000000015 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		A40000000000000000000011 /* QNScaleTestVisualTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNScaleTestVisualTests.swift; sourceTree = "<group>"; };
+		A40000000000000000000012 /* QNScaleServiceStub.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = QNScaleServiceStub.m; sourceTree = "<group>"; };
+		A40000000000000000000013 /* QNUITesting-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "QNUITesting-Bridging-Header.h"; sourceTree = "<group>"; };
 		A30000000000000000000002 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		A1000000000000000000000B /* V1.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = V1.xcdatamodel; sourceTree = "<group>"; };
 		A1000000000000000000000D /* V2.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = V2.xcdatamodel; sourceTree = "<group>"; };
@@ -354,6 +366,7 @@
 			files = (
 				A20000000000000000000003 /* XCTest.framework in Frameworks */,
 				A2000000000000000000000D /* CoreData.framework in Tests */,
+				A40000000000000000000009 /* HealthKit.framework in Tests */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -582,6 +595,9 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000010 /* QNScaleTestPersistenceTests.swift */,
+				A40000000000000000000011 /* QNScaleTestVisualTests.swift */,
+				A40000000000000000000012 /* QNScaleServiceStub.m */,
+				A40000000000000000000013 /* QNUITesting-Bridging-Header.h */,
 				A20000000000000000000024 /* Fixtures */,
 				A20000000000000000000012 /* Info.plist */,
 			);
@@ -973,6 +989,14 @@
 				A2000000000000000000000A /* QNHistoryComparisonService.swift in Tests */,
 				A2000000000000000000000B /* QNProfileStore.swift in Tests */,
 				A2000000000000000000000E /* QNPresentationModels.swift in Tests */,
+				A40000000000000000000001 /* QNScaleTestVisualTests.swift in Tests */,
+				A40000000000000000000002 /* QNScaleServiceStub.m in Tests */,
+				A40000000000000000000003 /* QNAppStore.swift in Tests */,
+				A40000000000000000000004 /* QNAppRootViewController.swift in Tests */,
+				A40000000000000000000005 /* QNModernComponents.swift in Tests */,
+				A40000000000000000000006 /* QNModernMainViews.swift in Tests */,
+				A40000000000000000000007 /* QNModernTrendViews.swift in Tests */,
+				A40000000000000000000008 /* QNHealthKitService.swift in Tests */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1272,6 +1296,8 @@
 				PRODUCT_NAME = QNScaleTestTests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
+				SWIFT_OBJC_BRIDGING_HEADER = "Tests/QNUITesting-Bridging-Header.h";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) QN_UI_TESTING";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -1288,6 +1314,8 @@
 				SDKROOT = iphoneos;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+				SWIFT_OBJC_BRIDGING_HEADER = "Tests/QNUITesting-Bridging-Header.h";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) QN_UI_TESTING";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;

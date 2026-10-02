@@ -10,18 +10,45 @@ enum QNModernStyle {
     static let separator = Color.primary.opacity(0.07)
     static let horizontalPadding: CGFloat = 20
     static let cardPadding: CGFloat = 16
-    static let sectionSpacing: CGFloat = 16
-    static let pageBottomPadding: CGFloat = 24
+    static let sectionSpacing: CGFloat = 14
+    static let pageTopPadding: CGFloat = 8
+    static let pageBottomPadding: CGFloat = 20
 }
 
 extension View {
     func qnModernCard(cornerRadius: CGFloat = 20) -> some View {
         background(QNModernStyle.card)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(QNModernStyle.separator, lineWidth: 0.5)
-            )
+    }
+}
+
+struct QNModernPageTitle: View {
+    let title: String
+    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 34
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: size, weight: .semibold))
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+struct QNModernSettingsSection<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title).font(.footnote).foregroundStyle(.secondary)
+                .padding(.horizontal, 4).accessibilityAddTraits(.isHeader)
+            content.qnModernCard(cornerRadius: 18)
+        }
     }
 }
 
@@ -33,10 +60,10 @@ struct QNModernPrimaryButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
-                .font(.headline)
+                .font(.body.weight(.semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 13)
+                .padding(.vertical, 12)
                 .background(QNModernStyle.action)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
@@ -46,6 +73,7 @@ struct QNModernPrimaryButton: View {
 
 struct QNModernMetricTile: View {
     @EnvironmentObject private var store: QNAppStore
+    @ScaledMetric(relativeTo: .title) private var numberSize: CGFloat = 29
     let title: String
     let value: Double?
     let definition: MetricDefinition
@@ -61,33 +89,30 @@ struct QNModernMetricTile: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(accent)
-                    .frame(width: 24)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18)
                 Text(title)
-                    .font(.subheadline.weight(.medium))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text(formatted.number)
-                    .font(.system(size: 27, weight: .bold, design: .rounded).monospacedDigit())
-                    .minimumScaleFactor(0.72)
+                    .font(.system(size: numberSize, weight: .semibold).monospacedDigit())
+                    .fixedSize(horizontal: false, vertical: true)
                 if value != nil, let unit = formatted.unit {
-                    Text(unit).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                    Text(unit).font(.caption).foregroundStyle(.secondary)
                 }
             }
             if value != nil, let evaluation {
                 Text(evaluation)
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption2)
                     .foregroundStyle(evaluation.contains("偏高") || evaluation.contains("肥胖") ? QNModernStyle.fat : accent)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background((evaluation.contains("偏高") || evaluation.contains("肥胖") ? QNModernStyle.fat : accent).opacity(0.12))
-                    .clipShape(Capsule())
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
         .padding(QNModernStyle.cardPadding)
         .qnModernCard(cornerRadius: 18)
         .accessibilityElement(children: .combine)
@@ -96,6 +121,8 @@ struct QNModernMetricTile: View {
 
 struct QNModernWeightCard: View {
     @EnvironmentObject private var store: QNAppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .largeTitle) private var numberSize: CGFloat = 54
     let snapshot: QNMeasurementSnapshot
     var previousWeight: Double? = nil
     var targetWeight: Double? = nil
@@ -105,10 +132,8 @@ struct QNModernWeightCard: View {
         snapshot.weight.map { store.displayWeightUnit.text(fromKilograms: $0) } ?? "—"
     }
 
-    private var previousDelta: String? {
-        guard let weight = snapshot.weight, let previousWeight else { return nil }
-        let value = store.displayWeightUnit.fromKilograms(weight - previousWeight)
-        return QNDisplayFormatter.number(value, maximumFractionDigits: 2, signed: true)
+    private var previousChange: String? {
+        QNDisplayFormatter.weightChange(current: snapshot.weight, previous: previousWeight, unit: store.displayWeightUnit)
     }
 
     private var targetRelation: String? {
@@ -121,39 +146,49 @@ struct QNModernWeightCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("最新体重").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                Text("最新体重").font(.subheadline).foregroundStyle(.secondary)
                 Spacer()
                 if showsDisclosure {
                     Image(systemName: "chevron.right").font(.subheadline.weight(.semibold)).foregroundStyle(.tertiary)
                 }
             }
-            HStack(alignment: .lastTextBaseline, spacing: 6) {
-                Text(weightText)
-                    .font(.system(size: 50, weight: .bold, design: .rounded).monospacedDigit())
-                    .minimumScaleFactor(0.7)
-                if snapshot.weight != nil {
-                    Text(store.displayWeightUnit.symbol).font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 0) {
+                    weightNumber
+                    weightUnit
+                }
+            } else {
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    weightNumber
+                    weightUnit
                 }
             }
-            HStack(spacing: 16) {
-                if let previousDelta {
-                    Label("较上次 \(previousDelta) \(store.displayWeightUnit.symbol)", systemImage: "arrow.left.arrow.right")
-                } else {
-                    Text("暂无上一条有效体重")
+            if previousChange != nil || targetRelation != nil {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let previousChange { Text(previousChange) }
+                    if let targetRelation { Text(targetRelation) }
                 }
-                Spacer(minLength: 4)
-                if let targetRelation {
-                    Text(targetRelation)
-                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
         .qnModernCard()
+    }
+
+    private var weightNumber: some View {
+        Text(weightText)
+            .font(.system(size: numberSize, weight: .semibold).monospacedDigit())
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private var weightUnit: some View {
+        if snapshot.weight != nil {
+            Text(store.displayWeightUnit.symbol).font(.title3).foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -175,26 +210,32 @@ struct QNModernSegmentCard: View {
         QNBodyRegion.allCases.filter { $0.hasValue(showFat: showFat, in: snapshot) }
     }
 
-    private var accent: Color { showFat ? QNModernStyle.fat : QNModernStyle.muscle }
+    private var accent: Color { QNModernStyle.action }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                Text("身体分段").font(.title3.weight(.bold))
-                Spacer()
-                Picker("分段指标", selection: $showFat) {
-                    Text("肌肉").tag(false)
-                    Text("脂肪").tag(true)
+            if dynamicTypeSize.isAccessibilitySize {
+                Text("身体分段").font(.headline).accessibilityAddTraits(.isHeader)
+                modePicker
+            } else {
+                HStack(spacing: 12) {
+                    Text("身体分段").font(.headline).accessibilityAddTraits(.isHeader)
+                    Spacer()
+                    modePicker.frame(maxWidth: 148)
                 }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 180)
             }
 
             if hasAnySegmentValue {
                 QNModernBodyDiagram(snapshot: snapshot, showFat: showFat, selected: $selected)
-                    .frame(height: 220)
+                    .frame(height: 238)
                 segmentValues
-                QNModernSegmentDetails(snapshot: snapshot, region: selected, showFat: showFat)
+                if selected.hasValue(showFat: showFat, in: snapshot) {
+                    Divider()
+                    QNModernSegmentDetails(snapshot: snapshot, region: selected)
+                } else {
+                    Text("本次记录未包含\(showFat ? "脂肪" : "肌肉")分段数据。")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
             } else {
                 HStack(spacing: 10) {
                     Image(systemName: "figure.stand").foregroundStyle(.secondary)
@@ -210,6 +251,14 @@ struct QNModernSegmentCard: View {
         .qnModernCard()
         .onAppear { selectFirstAvailable() }
         .onChange(of: showFat) { _ in selectFirstAvailable() }
+    }
+
+    private var modePicker: some View {
+        Picker("分段指标", selection: $showFat) {
+            Text("肌肉").tag(false)
+            Text("脂肪").tag(true)
+        }
+        .pickerStyle(.segmented)
     }
 
     private func selectFirstAvailable() {
@@ -245,24 +294,21 @@ struct QNModernSegmentCard: View {
             HStack {
                 Text(region.title)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(selected == region && available ? .primary : .secondary)
                 Spacer(minLength: 8)
                 Text(segmentValue(region: region, type: type))
                     .font(.subheadline.weight(.semibold).monospacedDigit())
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 9)
             .frame(maxWidth: .infinity)
-            .background(selected == region && available ? accent.opacity(0.10) : Color.primary.opacity(0.035))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(selected == region && available ? accent : Color.clear, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(selected == region && available ? accent.opacity(0.08) : Color.primary.opacity(0.025))
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(!available)
         .opacity(available ? 1 : 0.55)
+        .accessibilityAddTraits(selected == region && available ? .isSelected : [])
     }
 
     private func segmentValue(region: QNBodyRegion, type: Int) -> String {
@@ -275,43 +321,35 @@ struct QNModernSegmentCard: View {
     }
 }
 
-private struct QNModernBodyDiagram: View {
+struct QNModernBodyDiagram: View {
     @EnvironmentObject private var store: QNAppStore
     let snapshot: QNMeasurementSnapshot
     let showFat: Bool
     @Binding var selected: QNBodyRegion
 
-    private var accent: Color { showFat ? QNModernStyle.fat : QNModernStyle.muscle }
-
     var body: some View {
         GeometryReader { proxy in
-            let diagramWidth = min(proxy.size.width * 0.54, 180)
+            let diagramWidth = min(proxy.size.width, proxy.size.height * 0.66)
             ZStack {
-                Circle()
-                    .fill(Color.secondary.opacity(0.18))
-                    .frame(width: diagramWidth * 0.24, height: diagramWidth * 0.24)
-                    .position(x: proxy.size.width / 2, y: 25)
+                QNModernBodyHead()
+                    .fill(Color.secondary.opacity(0.24))
                     .accessibilityHidden(true)
-
                 ForEach(QNBodyRegion.allCases) { region in
                     let available = region.hasValue(showFat: showFat, in: snapshot)
-                    QNModernBodyRegionShape(region: region)
-                        .fill(available && selected == region ? accent : Color.secondary.opacity(available ? 0.26 : 0.12))
-                        .overlay(
-                            QNModernBodyRegionShape(region: region)
-                                .stroke(available && selected == region ? accent.opacity(0.95) : Color.primary.opacity(0.08), lineWidth: 1)
-                        )
-                        .frame(width: diagramWidth, height: 190)
-                        .position(x: proxy.size.width / 2, y: 125)
-                        .contentShape(QNModernBodyRegionShape(region: region))
-                        .onTapGesture { if available { selected = region } }
-                        .allowsHitTesting(available)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(region.title)
-                        .accessibilityValue(accessibilityValue(region))
-                        .accessibilityAddTraits(selected == region ? [.isButton, .isSelected] : .isButton)
+                    Button { selected = region } label: {
+                        QNModernBodyRegionShape(region: region)
+                            .fill(available && selected == region ? QNModernStyle.action : Color.secondary.opacity(available ? 0.28 : 0.11))
+                            .contentShape(QNBodyRegionHitShape(region: region))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!available)
+                    .accessibilityLabel(region.title)
+                    .accessibilityValue(accessibilityValue(region))
+                    .accessibilityAddTraits(selected == region && available ? .isSelected : [])
                 }
             }
+            .frame(width: diagramWidth, height: proxy.size.height)
+            .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
         }
     }
 
@@ -326,50 +364,93 @@ private struct QNModernBodyDiagram: View {
 
 }
 
-private struct QNModernBodyRegionShape: Shape {
+// All paths share one coordinate space. A small physical gap separates the
+// five segments; the neutral head/neck never participates in selection.
+struct QNModernBodyHead: Shape {
+    func path(in rect: CGRect) -> Path {
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height)
+        }
+        var path = Path()
+        path.move(to: p(0.5, 0.01))
+        path.addCurve(to: p(0.581, 0.060), control1: p(0.553, 0.005), control2: p(0.583, 0.028))
+        path.addCurve(to: p(0.553, 0.120), control1: p(0.581, 0.086), control2: p(0.573, 0.104))
+        path.addCurve(to: p(0.540, 0.146), control1: p(0.538, 0.129), control2: p(0.539, 0.140))
+        path.addLine(to: p(0.548, 0.155))
+        path.addQuadCurve(to: p(0.452, 0.155), control: p(0.5, 0.165))
+        path.addLine(to: p(0.460, 0.146))
+        path.addCurve(to: p(0.447, 0.120), control1: p(0.461, 0.140), control2: p(0.462, 0.129))
+        path.addCurve(to: p(0.419, 0.060), control1: p(0.427, 0.104), control2: p(0.419, 0.086))
+        path.addCurve(to: p(0.5, 0.01), control1: p(0.417, 0.028), control2: p(0.447, 0.005))
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct QNModernBodyRegionShape: Shape {
     let region: QNBodyRegion
 
     func path(in rect: CGRect) -> Path {
+        let mirrored = region == .leftArm || region == .leftLeg
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+            CGPoint(x: rect.minX + rect.width * (mirrored ? 1 - x : x), y: rect.minY + rect.height * y)
         }
         var path = Path()
         switch region {
         case .trunk:
-            path.move(to: point(0.37, 0.23))
-            path.addCurve(to: point(0.63, 0.23), control1: point(0.42, 0.19), control2: point(0.58, 0.19))
-            path.addCurve(to: point(0.66, 0.56), control1: point(0.68, 0.32), control2: point(0.69, 0.46))
-            path.addCurve(to: point(0.34, 0.56), control1: point(0.59, 0.61), control2: point(0.41, 0.61))
-            path.addCurve(to: point(0.37, 0.23), control1: point(0.31, 0.46), control2: point(0.32, 0.32))
+            path.move(to: point(0.445, 0.168))
+            path.addQuadCurve(to: point(0.555, 0.168), control: point(0.5, 0.183))
+            path.addCurve(to: point(0.679, 0.196), control1: point(0.593, 0.179), control2: point(0.650, 0.179))
+            path.addQuadCurve(to: point(0.644, 0.287), control: point(0.666, 0.240))
+            path.addCurve(to: point(0.607, 0.362), control1: point(0.628, 0.310), control2: point(0.607, 0.336))
+            path.addCurve(to: point(0.642, 0.474), control1: point(0.609, 0.409), control2: point(0.639, 0.441))
+            path.addQuadCurve(to: point(0.501, 0.514), control: point(0.612, 0.490))
+            path.addQuadCurve(to: point(0.358, 0.474), control: point(0.388, 0.490))
+            path.addCurve(to: point(0.393, 0.362), control1: point(0.361, 0.441), control2: point(0.391, 0.409))
+            path.addCurve(to: point(0.356, 0.287), control1: point(0.393, 0.336), control2: point(0.372, 0.310))
+            path.addQuadCurve(to: point(0.321, 0.196), control: point(0.334, 0.240))
+            path.addCurve(to: point(0.445, 0.168), control1: point(0.350, 0.179), control2: point(0.407, 0.179))
             path.closeSubpath()
-        case .rightArm:
-            path.move(to: point(0.34, 0.25))
-            path.addCurve(to: point(0.27, 0.28), control1: point(0.31, 0.24), control2: point(0.29, 0.25))
-            path.addLine(to: point(0.14, 0.51))
-            path.addCurve(to: point(0.22, 0.57), control1: point(0.11, 0.56), control2: point(0.17, 0.60))
-            path.addLine(to: point(0.39, 0.34))
+        case .rightArm, .leftArm:
+            path.move(to: point(0.305, 0.198))
+            path.addCurve(to: point(0.237, 0.258), control1: point(0.264, 0.203), control2: point(0.245, 0.231))
+            path.addCurve(to: point(0.193, 0.332), control1: point(0.222, 0.284), control2: point(0.208, 0.312))
+            path.addCurve(to: point(0.152, 0.438), control1: point(0.178, 0.364), control2: point(0.159, 0.407))
+            path.addCurve(to: point(0.134, 0.479), control1: point(0.148, 0.453), control2: point(0.131, 0.464))
+            path.addQuadCurve(to: point(0.182, 0.499), control: point(0.131, 0.499))
+            path.addQuadCurve(to: point(0.212, 0.472), control: point(0.207, 0.491))
+            path.addLine(to: point(0.224, 0.455))
+            path.addLine(to: point(0.218, 0.443))
+            path.addCurve(to: point(0.259, 0.344), control1: point(0.226, 0.414), control2: point(0.247, 0.373))
+            path.addCurve(to: point(0.319, 0.273), control1: point(0.279, 0.320), control2: point(0.301, 0.296))
+            path.addQuadCurve(to: point(0.305, 0.198), control: point(0.315, 0.227))
             path.closeSubpath()
-        case .leftArm:
-            path.move(to: point(0.66, 0.25))
-            path.addCurve(to: point(0.73, 0.28), control1: point(0.69, 0.24), control2: point(0.71, 0.25))
-            path.addLine(to: point(0.86, 0.51))
-            path.addCurve(to: point(0.78, 0.57), control1: point(0.89, 0.56), control2: point(0.83, 0.60))
-            path.addLine(to: point(0.61, 0.34))
-            path.closeSubpath()
-        case .rightLeg:
-            path.move(to: point(0.35, 0.56))
-            path.addCurve(to: point(0.49, 0.57), control1: point(0.39, 0.54), control2: point(0.45, 0.54))
-            path.addLine(to: point(0.46, 0.92))
-            path.addCurve(to: point(0.33, 0.91), control1: point(0.45, 0.98), control2: point(0.34, 0.98))
-            path.closeSubpath()
-        case .leftLeg:
-            path.move(to: point(0.51, 0.57))
-            path.addCurve(to: point(0.65, 0.56), control1: point(0.55, 0.54), control2: point(0.61, 0.54))
-            path.addLine(to: point(0.67, 0.91))
-            path.addCurve(to: point(0.54, 0.92), control1: point(0.66, 0.98), control2: point(0.55, 0.98))
+        case .rightLeg, .leftLeg:
+            path.move(to: point(0.360, 0.489))
+            path.addQuadCurve(to: point(0.489, 0.532), control: point(0.427, 0.510))
+            path.addCurve(to: point(0.447, 0.684), control1: point(0.484, 0.579), control2: point(0.456, 0.636))
+            path.addCurve(to: point(0.435, 0.803), control1: point(0.441, 0.722), control2: point(0.443, 0.752))
+            path.addCurve(to: point(0.414, 0.913), control1: point(0.426, 0.848), control2: point(0.408, 0.887))
+            path.addQuadCurve(to: point(0.417, 0.949), control: point(0.421, 0.935))
+            path.addQuadCurve(to: point(0.320, 0.950), control: point(0.362, 0.960))
+            path.addQuadCurve(to: point(0.315, 0.929), control: point(0.303, 0.942))
+            path.addLine(to: point(0.346, 0.906))
+            path.addCurve(to: point(0.356, 0.799), control1: point(0.352, 0.879), control2: point(0.348, 0.838))
+            path.addCurve(to: point(0.371, 0.685), control1: point(0.363, 0.754), control2: point(0.378, 0.724))
+            path.addCurve(to: point(0.360, 0.489), control1: point(0.355, 0.626), control2: point(0.341, 0.551))
             path.closeSubpath()
         }
         return path
+    }
+}
+
+private struct QNBodyRegionHitShape: Shape {
+    let region: QNBodyRegion
+    func path(in rect: CGRect) -> Path {
+        let outline = QNModernBodyRegionShape(region: region).path(in: rect)
+        var hitArea = outline
+        hitArea.addPath(outline.strokedPath(StrokeStyle(lineWidth: 14, lineCap: .round, lineJoin: .round)))
+        return hitArea
     }
 }
 
@@ -377,31 +458,24 @@ private struct QNModernSegmentDetails: View {
     @EnvironmentObject private var store: QNAppStore
     let snapshot: QNMeasurementSnapshot
     let region: QNBodyRegion
-    let showFat: Bool
-
     private var types: [(Int, String, Bool)] {
-        if showFat {
-            return [(region.fatMassType, "脂肪量原值", false), (region.fatIndexType, "脂肪指标原值", false)]
-        }
-        return [(region.muscleType, "肌肉量", true), (region.muscleIndexType, "肌肉比例原值", false)]
+        [(region.muscleType, "肌肉量", true), (region.fatMassType, "脂肪量原值", false),
+         (region.muscleIndexType, "肌肉比例原值", false), (region.fatIndexType, "脂肪指标原值", false)]
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             Text(region.title).font(.headline)
-            ForEach(types, id: \.0) { type, title, confirmedMass in
-                HStack {
+            ForEach(types.filter { region.value(type: $0.0, in: snapshot) != nil }, id: \.0) { type, title, confirmedMass in
+                HStack(alignment: .firstTextBaseline) {
                     Text(title).foregroundStyle(.secondary)
                     Spacer()
                     Text(display(type: type, confirmedMass: confirmedMass))
-                        .font(.body.weight(.semibold).monospacedDigit())
+                        .font(.subheadline.weight(.medium).monospacedDigit())
                 }
                 .font(.subheadline)
             }
         }
-        .padding(14)
-        .background(Color.primary.opacity(0.035))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func display(type: Int, confirmedMass: Bool) -> String {

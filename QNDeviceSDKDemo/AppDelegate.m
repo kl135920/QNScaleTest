@@ -18,8 +18,9 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     QNAppRootViewController *testViewController = [[QNAppRootViewController alloc] init];
-    UINavigationController *navigationController = [[UINavigationController alloc] initWithRootViewController:testViewController];
-    self.window.rootViewController = navigationController;
+    // SwiftUI owns page and modal navigation. An empty outer navigation bar
+    // would reserve another 44 pt above every tab.
+    self.window.rootViewController = testViewController;
     self.window.backgroundColor = UIColor.systemBackgroundColor;
     [self.window makeKeyAndVisible];
     return YES;
