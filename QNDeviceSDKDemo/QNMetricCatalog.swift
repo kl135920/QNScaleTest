@@ -90,7 +90,8 @@ enum QNMetricCatalog {
     static let reportTypes = [1, 15, 2, 3, 21, 35, 4, 5, 6, 112, 7, 36, 8, 9, 11, 13, 14, 32, 12]
     static let segmentMuscleTypes = [101, 102, 103, 104, 105]
     static let segmentFatTypes = [113, 114, 115, 116, 117]
-    static let comparisonTypes = reportTypes + segmentMuscleTypes + segmentFatTypes
+    static let segmentRawTypes = Array(106...110) + Array(118...122)
+    static let comparisonTypes = reportTypes + Array(101...122)
 
     static func definition(for type: Int) -> MetricDefinition {
         definitions[type] ?? MetricDefinition(id: type, title: "SDK 指标 \(type)", sdkSemantic: "未识别指标", unit: nil, precision: 2, category: "未识别", notes: "原始指标保留在 rawItemsJSON")

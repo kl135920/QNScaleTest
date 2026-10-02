@@ -24,6 +24,7 @@ NSString * const QNScaleServiceAppId = @"123456789";
 @property (nonatomic, copy, nullable) NSDictionary *latestRawMeasurement;
 @property (nonatomic, assign) BOOL initialized;
 @property (nonatomic, assign) BOOL scanning;
+@property (nonatomic, copy, nullable) NSString *lastOperationError;
 @property (nonatomic, assign) NSUInteger selectedIndex;
 @end
 
@@ -141,6 +142,7 @@ NSString * const QNScaleServiceAppId = @"123456789";
         [self appendLogCategory:@"BLE" message:@"不能扫描：SDK 尚未初始化成功"];
         return;
     }
+    self.lastOperationError = nil;
     [self appendLogCategory:@"BLE" message:@"开始扫描"]; 
     __weak typeof(self) weakSelf = self;
     [self.bleApi startBleDeviceDiscovery:^(NSError *error) {
@@ -174,6 +176,7 @@ NSString * const QNScaleServiceAppId = @"123456789";
         return;
     }
     self.selectedIndex = index;
+    self.lastOperationError = nil;
     NSDictionary *deviceInfo = self.mutableDevices[index];
     QNBleDevice *device = deviceInfo[@"object"];
     if (![device isKindOfClass:QNBleDevice.class]) { return; }
@@ -334,7 +337,7 @@ NSString * const QNScaleServiceAppId = @"123456789";
 - (NSString *)isoDate:(NSDate *)date { NSDateFormatter *f=[NSDateFormatter new]; f.locale=[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]; f.timeZone=NSTimeZone.localTimeZone; f.dateFormat=@"yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ"; return [f stringFromDate:date]; }
 - (NSString *)isoDateOnly:(NSDate *)date { NSDateFormatter *f=[NSDateFormatter new]; f.locale=[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]; f.dateFormat=@"yyyy-MM-dd"; return [f stringFromDate:date]; }
 - (NSString *)deviceTypeName:(QNDeviceType)type { switch(type){case QNDeviceTypeScaleBleDefault:return @"ScaleBleDefault";case QNDeviceTypeScaleBroadcast:return @"ScaleBroadcast";case QNDeviceTypeScaleKitchen:return @"ScaleKitchen";case QNDeviceTypeUserScale:return @"UserScale";case QNDeviceTypeHeightScale:return @"HeightScale";case QNDeviceTypeSlimScale:return @"SlimScale";} return [NSString stringWithFormat:@"Unknown(%lu)",(unsigned long)type]; }
-- (void)appendError:(NSError *)error category:(NSString *)category context:(NSString *)context { [self appendLogCategory:category message:[NSString stringWithFormat:@"%@ domain=%@ code=%ld description=%@ userInfo=%@", context,error.domain ?: @"<nil>",(long)error.code,error.localizedDescription ?: @"<nil>",error.userInfo ?: @{}]]; }
+- (void)appendError:(NSError *)error category:(NSString *)category context:(NSString *)context { self.lastOperationError = [NSString stringWithFormat:@"%@：%@", context, error.localizedDescription ?: @"未知错误"]; [self appendLogCategory:category message:[NSString stringWithFormat:@"%@ domain=%@ code=%ld description=%@ userInfo=%@", context,error.domain ?: @"<nil>",(long)error.code,error.localizedDescription ?: @"<nil>",error.userInfo ?: @{}]]; [self notifyState]; }
 - (void)appendLogCategory:(NSString *)category message:(NSString *)message { dispatch_async(dispatch_get_main_queue(), ^{ NSDateFormatter *f=[NSDateFormatter new]; f.locale=[NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"]; f.dateFormat=@"yyyy-MM-dd HH:mm:ss.SSS"; NSString *line=[NSString stringWithFormat:@"[%@][%@] %@",[f stringFromDate:NSDate.date],category,message]; @synchronized(self){[self.logEntries addObject:line];} NSLog(@"%@",line); [self.delegate scaleServiceDidReceiveLog:line]; }); }
 
 @end

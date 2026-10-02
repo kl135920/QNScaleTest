@@ -25,6 +25,8 @@ FOUNDATION_EXPORT NSString * const QNScaleServiceAppId;
 @property (nonatomic, copy, readonly) NSString *sdkState;
 @property (nonatomic, copy, readonly) NSString *bluetoothState;
 @property (nonatomic, copy, readonly) NSString *connectionState;
+@property (nonatomic, assign, readonly, getter=isScanning) BOOL scanning;
+@property (nonatomic, copy, readonly, nullable) NSString *lastOperationError;
 @property (nonatomic, copy, readonly) NSArray<NSDictionary *> *devices;
 @property (nonatomic, copy, readonly) NSString *debugLogText;
 @property (nonatomic, copy, readonly, nullable) NSDictionary *latestRawMeasurement;

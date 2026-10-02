@@ -88,6 +88,10 @@
 		A10000000000000000000031 /* QNReferenceRangeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* QNReferenceRangeService.swift */; };
 		A10000000000000000000032 /* QNHistoryComparisonService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* QNHistoryComparisonService.swift */; };
 		A10000000000000000000033 /* QNProfileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* QNProfileStore.swift */; };
+		A10000000000000000000034 /* QNPresentationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* QNPresentationModels.swift */; };
+		A10000000000000000000035 /* QNModernComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000025 /* QNModernComponents.swift */; };
+		A10000000000000000000036 /* QNModernMainViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000026 /* QNModernMainViews.swift */; };
+		A10000000000000000000037 /* QNModernTrendViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* QNModernTrendViews.swift */; };
 		A20000000000000000000001 /* QNScaleTestPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* QNScaleTestPersistenceTests.swift */; };
 		A20000000000000000000002 /* QNScaleMeasurementFixture.redacted.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* QNScaleMeasurementFixture.redacted.json */; };
 		A20000000000000000000003 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* XCTest.framework */; };
@@ -102,6 +106,7 @@
 		A2000000000000000000000B /* QNProfileStore.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* QNProfileStore.swift */; };
 		A2000000000000000000000C /* QNScaleModel.xcdatamodeld in Tests */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* QNScaleModel.xcdatamodeld */; };
 		A2000000000000000000000D /* CoreData.framework in Tests */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* CoreData.framework */; };
+		A2000000000000000000000E /* QNPresentationModels.swift in Tests */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* QNPresentationModels.swift */; };
 		D232D64F2004DE2D00AABD67 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = D232D64E2004DE2D00AABD67 /* ViewController.m */; };
 		D232D6522004DE2D00AABD67 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D232D6502004DE2D00AABD67 /* Main.storyboard */; };
 		D232D6542004DE2D00AABD67 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D232D6532004DE2D00AABD67 /* Assets.xcassets */; };
@@ -255,6 +260,10 @@
 		A10000000000000000000021 /* QNReferenceRangeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNReferenceRangeService.swift; sourceTree = "<group>"; };
 		A10000000000000000000022 /* QNHistoryComparisonService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNHistoryComparisonService.swift; sourceTree = "<group>"; };
 		A10000000000000000000023 /* QNProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNProfileStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000024 /* QNPresentationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNPresentationModels.swift; sourceTree = "<group>"; };
+		A10000000000000000000025 /* QNModernComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNModernComponents.swift; sourceTree = "<group>"; };
+		A10000000000000000000026 /* QNModernMainViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNModernMainViews.swift; sourceTree = "<group>"; };
+		A10000000000000000000027 /* QNModernTrendViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNModernTrendViews.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* QNScaleTestPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QNScaleTestPersistenceTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000011 /* QNScaleMeasurementFixture.redacted.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QNScaleMeasurementFixture.redacted.json; sourceTree = "<group>"; };
 		A20000000000000000000012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -538,6 +547,10 @@
 				A10000000000000000000021 /* QNReferenceRangeService.swift */,
 				A10000000000000000000022 /* QNHistoryComparisonService.swift */,
 				A10000000000000000000023 /* QNProfileStore.swift */,
+				A10000000000000000000024 /* QNPresentationModels.swift */,
+				A10000000000000000000025 /* QNModernComponents.swift */,
+				A10000000000000000000026 /* QNModernMainViews.swift */,
+				A10000000000000000000027 /* QNModernTrendViews.swift */,
 				A1000000000000000000000C /* QNScaleModel.xcdatamodeld */,
 				D232D64D2004DE2D00AABD67 /* ViewController.h */,
 				D232D64E2004DE2D00AABD67 /* ViewController.m */,
@@ -896,6 +909,10 @@
 				A10000000000000000000031 /* QNReferenceRangeService.swift in Sources */,
 				A10000000000000000000032 /* QNHistoryComparisonService.swift in Sources */,
 				A10000000000000000000033 /* QNProfileStore.swift in Sources */,
+				A10000000000000000000034 /* QNPresentationModels.swift in Sources */,
+				A10000000000000000000035 /* QNModernComponents.swift in Sources */,
+				A10000000000000000000036 /* QNModernMainViews.swift in Sources */,
+				A10000000000000000000037 /* QNModernTrendViews.swift in Sources */,
 				F60000000000000000000003 /* QNScaleTestViewController.m in Sources */,
 				D232D64F2004DE2D00AABD67 /* ViewController.m in Sources */,
 				D248DC5B22D85DF200DA046C /* NSTimer+YYAdd.m in Sources */,
@@ -955,6 +972,7 @@
 				A20000000000000000000009 /* QNReferenceRangeService.swift in Tests */,
 				A2000000000000000000000A /* QNHistoryComparisonService.swift in Tests */,
 				A2000000000000000000000B /* QNProfileStore.swift in Tests */,
+				A2000000000000000000000E /* QNPresentationModels.swift in Tests */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

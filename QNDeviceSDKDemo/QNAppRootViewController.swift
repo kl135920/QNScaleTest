@@ -63,9 +63,9 @@ private struct QNMainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            QNDashboardView(onMeasure: { selectedTab = 2 }).tabItem { Label("首页", systemImage: "heart.text.square") }.tag(0)
-            QNTrendView().tabItem { Label("趋势", systemImage: "chart.xyaxis.line") }.tag(1)
-            QNMeasurementView().tabItem { Label("测量", systemImage: "scalemass") }.tag(2)
+            QNModernDashboardView(onMeasure: { selectedTab = 2 }).tabItem { Label("首页", systemImage: "heart.text.square") }.tag(0)
+            QNModernTrendView().tabItem { Label("趋势", systemImage: "chart.xyaxis.line") }.tag(1)
+            QNModernMeasurementView().tabItem { Label("测量", systemImage: "scalemass") }.tag(2)
             QNProfileView().tabItem { Label("我的", systemImage: "person.crop.circle") }.tag(3)
         }
         .tint(QNDesign.blue)
@@ -1016,7 +1016,12 @@ private struct QNProfileView: View {
                     Text("Apple 健康").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
                     VStack(spacing: 0) {
                         Button { Task { await store.requestHealthKitAuthorization() } } label: {
-                            QNSettingsRow(icon: "heart.fill", title: "健康权限", value: store.healthKitStatus)
+                            QNHealthSettingsRow(
+                                icon: "heart.fill",
+                                title: "健康权限",
+                                subtitle: "写入：\(store.healthKitStatus) · 读取：\(store.healthKitReadStatus)",
+                                trailing: store.healthKitIsSyncing ? "处理中" : nil
+                            )
                         }
                         .buttonStyle(.plain).disabled(store.healthKitIsSyncing || !store.healthKitAvailable)
                         Divider().padding(.leading, 54)
@@ -1033,7 +1038,12 @@ private struct QNProfileView: View {
                         .padding(.horizontal, 16).padding(.vertical, 13)
                         Divider().padding(.leading, 54)
                         Button { Task { await store.syncWithHealthKit() } } label: {
-                            QNSettingsRow(icon: "arrow.up.arrow.down.circle", title: "立即双向同步", value: store.healthKitIsSyncing ? "同步中" : store.healthKitLastSyncSummary)
+                            QNHealthSettingsRow(
+                                icon: "arrow.up.arrow.down.circle",
+                                title: "立即双向同步",
+                                subtitle: store.healthKitLastSyncSummary ?? "尚未同步",
+                                trailing: store.healthKitLastSyncDateText
+                            )
                         }
                         .buttonStyle(.plain).disabled(store.healthKitIsSyncing || !store.healthKitAvailable)
                     }.qnCard(cornerRadius: 18)
@@ -1044,7 +1054,7 @@ private struct QNProfileView: View {
                         QNSettingsRow(icon: "hand.raised", title: "本机保存，可选同步 Apple 健康", value: nil, showsChevron: false)
                     }.qnCard(cornerRadius: 18)
                 }
-                .padding(.horizontal, 16).padding(.top, 18).padding(.bottom, 28)
+                .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 28)
             }
             .background(QNDesign.page.ignoresSafeArea())
             .navigationBarHidden(true)
@@ -1074,12 +1084,75 @@ private struct QNSettingsRow: View {
     }
 }
 
+private struct QNHealthSettingsRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let trailing: String?
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon).font(.headline).foregroundStyle(QNDesign.blue).frame(width: 26)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.body.weight(.medium)).lineLimit(1)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            if let trailing { Text(trailing).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.trailing) }
+            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 13)
+    }
+}
+
 private struct QNHistoryView: View {
     @EnvironmentObject private var store: QNAppStore
     @Environment(\.dismiss) private var dismiss
     @State private var deleting: QNMeasurementSnapshot?
     @State private var report: QNMeasurementSnapshot?
-    var body: some View { NavigationView { List { ForEach(store.records) { snapshot in Button { report=snapshot } label: { HStack { VStack(alignment:.leading) { Text(snapshot.displayDate); Text(snapshot.status == "abnormal" ? "异常结果已保留" : "正常结果").font(.caption).foregroundStyle(snapshot.isAbnormal ? .orange : .secondary) }; Spacer(); VStack(alignment:.trailing) { Text(snapshot.weight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "—"); Text(snapshot.bodyFatRate.map { String(format:"%.1f",$0) } ?? "—").font(.caption).foregroundStyle(.secondary) } } }.buttonStyle(.plain).swipeActions { Button(role:.destructive) { deleting=snapshot } label: { Label("删除", systemImage:"trash") } } } }.navigationTitle("历史记录").toolbar { ToolbarItem(placement:.cancellationAction) { Button("完成") { dismiss() } } }.alert("删除这条测量？", isPresented: Binding(get:{deleting != nil},set:{if !$0{deleting=nil}})) { Button("取消",role:.cancel){deleting=nil}; Button("删除",role:.destructive){if let deleting{store.delete(deleting)};deleting=nil} }.sheet(item:$report) { QNReportSheet(snapshot:$0,onExport:{}) } } }
+    @State private var shareItem: QNModernShareItem?
+
+    var body: some View {
+        NavigationView {
+            List {
+                ForEach(QNMeasurementTimeline.ordered(store.records, ascending: false)) { snapshot in
+                    Button { report = snapshot } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(snapshot.displayDate)
+                                if snapshot.isAbnormal {
+                                    Text("异常结果已保留").font(.caption).foregroundStyle(.orange)
+                                }
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 3) {
+                                Text(snapshot.weight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "—")
+                                    .font(.body.weight(.semibold).monospacedDigit())
+                                Text(snapshot.bodyFatRate.map { QNDisplayFormatter.number($0, maximumFractionDigits: 1) + " %" } ?? "—")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .swipeActions {
+                        Button(role: .destructive) { deleting = snapshot } label: { Label("删除", systemImage: "trash") }
+                    }
+                }
+            }
+            .navigationTitle("历史记录")
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("完成") { dismiss() } } }
+            .alert("删除这条测量？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+                Button("取消", role: .cancel) { deleting = nil }
+                Button("删除", role: .destructive) { if let deleting { store.delete(deleting) }; deleting = nil }
+            }
+            .fullScreenCover(item: $report) { snapshot in
+                QNModernReportView(snapshot: snapshot) {
+                    shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
+                }
+            }
+            .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
+        }
+    }
 }
 
 private struct QNDeveloperView: View {

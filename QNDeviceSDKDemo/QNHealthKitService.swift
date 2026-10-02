@@ -18,6 +18,8 @@ enum QNHealthKitError: LocalizedError {
 protocol QNHealthKitServiceProtocol {
     var isAvailable: Bool { get }
     var authorizationStateText: String { get }
+    var writeAuthorizationStateText: String { get }
+    var readAuthorizationStateText: String { get }
     func requestAuthorization() async throws
     func write(_ snapshot: QNMeasurementSnapshot) async throws -> Int
     func importMeasurements(profile: QNUserProfile) async throws -> [[String: Any]]
@@ -35,6 +37,7 @@ final class QNHealthKitService: QNHealthKitServiceProtocol {
     private let healthStore: HKHealthStore
     private let defaults: UserDefaults
     private let syncedKeysDefaultsKey = "QNScaleTest.healthKit.syncedSampleKeys.v1"
+    private let authorizationRequestedDefaultsKey = "QNScaleTest.healthKit.authorizationRequested.v1"
     private let externalUUIDPrefix = "QNScaleTest|"
 
     init(healthStore: HKHealthStore = HKHealthStore(), defaults: UserDefaults = .standard) {
@@ -44,13 +47,22 @@ final class QNHealthKitService: QNHealthKitServiceProtocol {
 
     var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
 
-    var authorizationStateText: String {
+    var authorizationStateText: String { writeAuthorizationStateText }
+
+    var writeAuthorizationStateText: String {
         guard isAvailable else { return "不可用" }
         let statuses = quantityTypes.map { healthStore.authorizationStatus(for: $0) }
-        if statuses.allSatisfy({ $0 == .sharingAuthorized }) { return "已连接" }
-        if statuses.allSatisfy({ $0 == .notDetermined }) { return "未授权" }
-        if statuses.contains(.sharingDenied) { return "部分权限未开启" }
-        return "部分权限已开启"
+        if statuses.allSatisfy({ $0 == .sharingAuthorized }) { return "写入已授权" }
+        if statuses.allSatisfy({ $0 == .notDetermined }) { return "写入未请求" }
+        if statuses.allSatisfy({ $0 == .sharingDenied }) { return "写入未授权" }
+        return "部分写入权限"
+    }
+
+    var readAuthorizationStateText: String {
+        guard isAvailable else { return "不可用" }
+        return defaults.bool(forKey: authorizationRequestedDefaultsKey)
+            ? "已请求（系统不公开读取状态）"
+            : "尚未请求"
     }
 
     func requestAuthorization() async throws {
@@ -60,7 +72,10 @@ final class QNHealthKitService: QNHealthKitServiceProtocol {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             healthStore.requestAuthorization(toShare: shareTypes, read: readTypes) { success, error in
                 if let error { continuation.resume(throwing: error) }
-                else if success { continuation.resume(returning: ()) }
+                else if success {
+                    self.defaults.set(true, forKey: self.authorizationRequestedDefaultsKey)
+                    continuation.resume(returning: ())
+                }
                 else { continuation.resume(throwing: QNHealthKitError.authorizationFailed) }
             }
         }

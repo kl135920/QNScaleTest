@@ -119,4 +119,125 @@ final class QNScaleTestPersistenceTests: XCTestCase {
         XCTAssertEqual(record.schemaVersion, 1)
         XCTAssertEqual(record.metrics["skeletalMuscleRate"] ?? 0, 41.6, accuracy: 0.0001)
     }
+
+    func testDisplayFormatterRemovesMeaninglessTrailingZeros() {
+        XCTAssertEqual(QNDisplayFormatter.number(140, maximumFractionDigits: 2), "140")
+        XCTAssertEqual(QNDisplayFormatter.number(167.5, maximumFractionDigits: 2), "167.5")
+        XCTAssertEqual(QNDisplayFormatter.number(0.2, maximumFractionDigits: 1, signed: true), "+0.2")
+        XCTAssertEqual(QNDisplayFormatter.number(-0.2, maximumFractionDigits: 1, signed: true), "-0.2")
+        XCTAssertEqual(QNDisplayWeightUnit.jin.text(fromKilograms: 83.75), "167.5")
+    }
+
+    func testTimelineLatestPreviousAndGoalUseMeasurementTime() throws {
+        let repository = try QNMeasurementRepository(inMemory: true)
+        let start = try repository.save(measurement: measurement(date: "2026-09-01T08:00:00+08:00", weight: 90), profile: profile())
+        let middle = try repository.save(measurement: measurement(date: "2026-09-20T08:00:00+08:00", weight: 86), profile: profile())
+        let latest = try repository.save(measurement: measurement(date: "2026-10-01T08:00:00+08:00", weight: 84), profile: profile())
+        let importedLater = try repository.save(measurement: measurement(date: "2026-08-01T08:00:00+08:00", weight: 92, identifier: "healthkit"), profile: profile())
+        let records = [middle, importedLater, latest, start]
+
+        XCTAssertEqual(QNMeasurementTimeline.latest(records)?.id, latest.id)
+        XCTAssertEqual(QNMeasurementTimeline.previousValidWeight(before: latest, in: records)?.id, middle.id)
+        let progress = try XCTUnwrap(QNGoalProgress.make(records: records, targetWeight: 80))
+        XCTAssertEqual(progress.startWeight, 92, accuracy: 0.0001)
+        XCTAssertEqual(progress.currentWeight, 84, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(progress.fraction), 8.0 / 12.0, accuracy: 0.0001)
+    }
+
+    func testHealthKitPartialRecordKeepsUnavailableMetricsNil() throws {
+        let repository = try QNMeasurementRepository(inMemory: true)
+        var partial = try fixture()
+        partial["device"] = [
+            "bluetoothName": "Apple 健康",
+            "deviceIdentifier": "healthkit",
+            "deviceType": -1,
+            "modeId": "HealthKit",
+            "isSupportEightElectrodes": false
+        ]
+        let items = try XCTUnwrap(partial["items"] as? [[String: Any]])
+        partial["items"] = items.filter { [1, 2, 3, 12].contains($0["type"] as? Int ?? -1) }
+        let snapshot = try repository.save(measurement: partial, profile: profile())
+
+        XCTAssertNotNil(snapshot.weight)
+        XCTAssertNotNil(snapshot.bodyFatRate)
+        XCTAssertNil(snapshot.muscleMass)
+        XCTAssertNil(snapshot.skeletalMuscleMass)
+        for region in QNBodyRegion.allCases {
+            XCTAssertNil(region.value(type: region.muscleType, in: snapshot))
+            XCTAssertNil(region.value(type: region.fatMassType, in: snapshot))
+        }
+    }
+
+    func testSDKRecordPersistsCoreAndSegmentMetrics() throws {
+        let repository = try QNMeasurementRepository(inMemory: true)
+        let snapshot = try repository.save(measurement: fixture(), profile: profile())
+        XCTAssertNotNil(snapshot.muscleMass)
+        XCTAssertNotNil(snapshot.skeletalMuscleMass)
+        for region in QNBodyRegion.allCases {
+            XCTAssertNotNil(region.value(type: region.muscleType, in: snapshot))
+            XCTAssertNotNil(region.value(type: region.fatMassType, in: snapshot))
+        }
+    }
+
+    func testTrendSeriesUsesActualTimeAndIgnoresMissingValues() throws {
+        let repository = try QNMeasurementRepository(inMemory: true)
+        let first = try repository.save(measurement: measurement(date: "2026-10-01T00:00:00Z", weight: 80), profile: profile())
+        let second = try repository.save(measurement: measurement(date: "2026-10-02T00:00:00Z", weight: 81), profile: profile())
+        let last = try repository.save(measurement: measurement(date: "2026-10-05T00:00:00Z", weight: 79), profile: profile())
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-05T00:00:00Z"))
+        let metric = try XCTUnwrap(QNTrendMetric.all.first { $0.key == "weight" })
+        let series = QNTrendSeries.make(records: [last, first, second], metric: metric, range: .all, now: now)
+
+        XCTAssertEqual(series.points.map(\.value), [80, 81, 79])
+        XCTAssertEqual(series.xFraction(for: second.measureTime), 0.25, accuracy: 0.0001)
+        XCTAssertEqual(series.statistics?.change ?? 0, -1, accuracy: 0.0001)
+        XCTAssertEqual(series.statistics?.minimum ?? 0, 79, accuracy: 0.0001)
+        XCTAssertEqual(series.statistics?.maximum ?? 0, 81, accuracy: 0.0001)
+    }
+
+    func testComparisonOrdersSelectionsAndDoesNotInventMissingDifference() throws {
+        let repository = try QNMeasurementRepository(inMemory: true)
+        let earlier = try repository.save(measurement: measurement(date: "2026-10-01T08:00:00+08:00", weight: 80), profile: profile())
+        var partial = try measurement(date: "2026-10-02T08:00:00+08:00", weight: 82)
+        let items = try XCTUnwrap(partial["items"] as? [[String: Any]])
+        partial["items"] = items.filter { ($0["type"] as? Int) != 101 }
+        let later = try repository.save(measurement: partial, profile: profile())
+
+        let comparison = try XCTUnwrap(QNHistoryComparisonService.compare(start: later, end: earlier))
+        XCTAssertEqual(comparison.start.id, earlier.id)
+        XCTAssertEqual(comparison.end.id, later.id)
+        XCTAssertEqual(try XCTUnwrap(comparison.rows.first { $0.type == 1 }?.difference), 2, accuracy: 0.0001)
+        XCTAssertNil(comparison.rows.first { $0.type == 101 }?.difference)
+    }
+
+    func testBodyRegionMappingsAndMeasurementStateReducer() {
+        XCTAssertEqual(QNBodyRegion.rightArm.muscleType, 101)
+        XCTAssertEqual(QNBodyRegion.leftArm.muscleType, 102)
+        XCTAssertEqual(QNBodyRegion.rightLeg.muscleIndexType, 122)
+        XCTAssertEqual(QNBodyRegion.leftLeg.muscleIndexType, 121)
+        XCTAssertEqual(
+            QNMeasurementUIState.resolve(sdkState: "初始化成功", bluetoothState: "开启", connectionState: "未连接", isScanning: true, deviceName: "QN-Scale", measurementState: "等待连接", weight: nil, operationError: nil),
+            .scanning
+        )
+        XCTAssertEqual(
+            QNMeasurementUIState.resolve(sdkState: "初始化成功", bluetoothState: "开启", connectionState: "已连接", isScanning: false, deviceName: "QN-Scale", measurementState: "测量生物阻抗", weight: 84.2, operationError: nil),
+            .measuring(weight: 84.2, state: "测量生物阻抗")
+        )
+    }
+
+    private func measurement(date: String, weight: Double, identifier: String = "test-device") throws -> [String: Any] {
+        var result = try fixture()
+        var scaleData = try XCTUnwrap(result["scaleData"] as? [String: Any])
+        scaleData["measureTime"] = date
+        scaleData["hmac"] = "hmac-\(date)-\(identifier)"
+        scaleData["weight"] = weight
+        result["scaleData"] = scaleData
+        var device = try XCTUnwrap(result["device"] as? [String: Any])
+        device["deviceIdentifier"] = identifier
+        result["device"] = device
+        var items = try XCTUnwrap(result["items"] as? [[String: Any]])
+        if let index = items.firstIndex(where: { ($0["type"] as? Int) == 1 }) { items[index]["value"] = weight }
+        result["items"] = items
+        return result
+    }
 }
