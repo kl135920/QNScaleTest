@@ -188,6 +188,32 @@ final class QNScaleTestVisualTests: XCTestCase {
         XCTAssertEqual(store.measurementUIState, .abnormal("测量异常，已保存原始结果"))
     }
 
+    @MainActor func testFinalCallbackAutosavesDeduplicatesAndShowsFailureHonestly() async throws {
+        let store = try makeStore(empty: true)
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "QNScaleMeasurementFixture.redacted", withExtension: "json"))
+        let fixture = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        store.scaleServiceDidReceiveMeasurement(fixture)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(store.records.count, 1)
+        XCTAssertEqual(store.measurementUIState, .completed)
+        XCTAssertNil(store.pendingMeasurement)
+        let savedID = try XCTUnwrap(store.lastSavedMeasurement).id
+        store.scaleServiceDidReceiveMeasurement(fixture)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(store.records.count, 1)
+        XCTAssertEqual(store.lastSavedMeasurement?.id, savedID)
+        store.scaleServiceDidReceiveMeasurement([:])
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(store.measurementState, "保存失败")
+        XCTAssertNotNil(store.pendingMeasurement)
+        XCTAssertNotNil(store.lastError)
+        try await capture("measurement-save-failure", view: QNMainTabView(initialTab: .measurement), store: store)
+        store.scaleServiceDidReceiveMeasurement(fixture)
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertNil(store.pendingMeasurement)
+        XCTAssertEqual(store.records.count, 1)
+    }
+
     @MainActor func testNativeBodyPathsAreSeparateAndCorrectlyMirrored() {
         let rect = CGRect(x: 0, y: 0, width: 180, height: 270)
         let paths = Dictionary(uniqueKeysWithValues: QNBodyRegion.allCases.map { ($0, QNModernBodyRegionShape(region: $0).path(in: rect)) })

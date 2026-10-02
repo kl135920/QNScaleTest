@@ -292,6 +292,37 @@ final class QNScaleTestPersistenceTests: XCTestCase {
         XCTAssertEqual(QNMeasurementUIState.resolve(sdkState: "初始化成功", bluetoothState: "开启", connectionState: "已连接", isScanning: false, deviceName: "QN-Scale", measurementState: "测量异常，已保存原始结果", weight: 84.2, operationError: nil), .abnormal("测量异常，已保存原始结果"))
     }
 
+    func testHealthSyncSummaryDistinguishesNoChangesAndPartialErrors() {
+        let date = Date(timeIntervalSince1970: 0)
+        let noChanges = QNHealthKitSyncSummary(date: date, written: 0, imported: 0, outcome: .noChanges, errorMessage: nil)
+        XCTAssertEqual(noChanges.resultText, "没有新增数据")
+        let partial = QNHealthKitSyncSummary(date: date, written: 4, imported: 0, outcome: .partial, errorMessage: "导入失败")
+        XCTAssertTrue(partial.resultText.contains("写入 4 项"))
+        XCTAssertTrue(partial.resultText.contains("导入失败"))
+        let failure = QNHealthKitSyncSummary(date: date, written: 0, imported: 0, outcome: .failed, errorMessage: "写入未授权")
+        XCTAssertTrue(failure.resultText.contains("写入未授权"))
+        XCTAssertNotEqual(failure.resultText, noChanges.resultText)
+    }
+
+    func testJSONExportsKeepRawItemsOriginalDataAndProfileSnapshot() throws {
+        let repository = try QNMeasurementRepository(inMemory: true)
+        let original = try fixture()
+        let snapshot = try repository.save(measurement: original, profile: profile())
+        for data in [try repository.export(snapshot), try repository.exportAll(profile: profile())] {
+            let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let rows = try XCTUnwrap(payload["measurements"] as? [[String: Any]])
+            XCTAssertEqual(rows.count, 1)
+            let row = try XCTUnwrap(rows.first)
+            let raw = try XCTUnwrap(row["rawQNData"] as? [String: Any])
+            XCTAssertEqual(try JSONSerialization.data(withJSONObject: raw, options: .sortedKeys), try JSONSerialization.data(withJSONObject: original, options: .sortedKeys))
+            XCTAssertEqual((row["rawItems"] as? [[String: Any]])?.count, 30)
+            XCTAssertNotNil((row["profile"] as? [String: Any])?["birthday"])
+            XCTAssertEqual((row["standardized"] as? [String: Double])?["weight"], 84.2)
+            XCTAssertNotNil((raw["scaleData"] as? [String: Any])?["hmac"])
+            XCTAssertNotNil((raw["scaleData"] as? [String: Any])?["resistance50"])
+        }
+    }
+
     private func measurement(date: String, weight: Double, identifier: String = "test-device") throws -> [String: Any] {
         var result = try fixture()
         var scaleData = try XCTUnwrap(result["scaleData"] as? [String: Any])

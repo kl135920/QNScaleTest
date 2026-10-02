@@ -389,8 +389,10 @@ struct QNHealthKitSyncSummary: Codable, Equatable {
         switch outcome {
         case .success: return "写入 \(written) 项，导入 \(imported) 条"
         case .noChanges: return "没有新增数据"
-        case .partial: return "部分完成：写入 \(written) 项，导入 \(imported) 条"
-        case .failed: return errorMessage ?? "同步失败"
+        case .partial:
+            return "部分完成：写入 \(written) 项，导入 \(imported) 条" + (errorMessage.map { "\n" + $0 } ?? "")
+        case .failed:
+            return "写入 \(written) 项，导入 \(imported) 条\n" + (errorMessage ?? "同步失败")
         }
     }
 }

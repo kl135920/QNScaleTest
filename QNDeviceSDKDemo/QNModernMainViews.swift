@@ -298,17 +298,17 @@ struct QNModernMeasurementView: View {
                 secondaryButton(title: "断开连接", systemImage: "link.badge.minus") { store.disconnectAndSuspendAutomaticConnection() }
             case .completed:
                 let isSaved = store.measurementState.contains("已保存")
-                stateHeader(
-                    icon: "checkmark.circle.fill",
-                    title: isSaved ? "测量结果已保存" : "测量完成",
-                    message: isSaved ? "正在打开本次测量报告。" : "正在保存本次测量结果。",
-                    tint: QNModernStyle.action
-                )
-                if isSaved, let snapshot = store.lastSavedMeasurement {
-                    secondaryButton(title: "查看本次报告", systemImage: "doc.text.magnifyingglass") {
-                        report = snapshot
-                        presentedMeasurementID = snapshot.id
+                if isSaved {
+                    stateHeader(icon: "checkmark.circle.fill", title: "测量结果已保存", message: "可查看本次完整测量报告。", tint: QNModernStyle.action)
+                    if let snapshot = store.lastSavedMeasurement {
+                        secondaryButton(title: "查看本次报告", systemImage: "doc.text.magnifyingglass") {
+                            report = snapshot
+                            presentedMeasurementID = snapshot.id
+                        }
                     }
+                } else {
+                    ProgressView().tint(QNModernStyle.action)
+                    stateText(title: "正在获取测量结果", message: "已收到测量完成状态，等待 SDK 返回完整数据。")
                 }
             case .failed(let message):
                 stateHeader(icon: "exclamationmark.circle", title: "连接或测量失败", message: message, tint: .red)
