@@ -213,6 +213,9 @@ final class QNScaleTestPersistenceTests: XCTestCase {
     func testBodyRegionMappingsAndMeasurementStateReducer() {
         XCTAssertEqual(QNBodyRegion.rightArm.muscleType, 101)
         XCTAssertEqual(QNBodyRegion.leftArm.muscleType, 102)
+        XCTAssertEqual(QNBodyRegion.rightArm.muscleIndexType, 119)
+        XCTAssertEqual(QNBodyRegion.leftArm.muscleIndexType, 118)
+        XCTAssertEqual(QNBodyRegion.trunk.muscleIndexType, 120)
         XCTAssertEqual(QNBodyRegion.rightLeg.muscleIndexType, 122)
         XCTAssertEqual(QNBodyRegion.leftLeg.muscleIndexType, 121)
         XCTAssertEqual(
@@ -227,6 +230,38 @@ final class QNScaleTestPersistenceTests: XCTestCase {
             QNMeasurementUIState.resolve(sdkState: "初始化成功", bluetoothState: "开启", connectionState: "已连接", isScanning: false, deviceName: "QN-Scale", measurementState: "保存失败", weight: 84.2, operationError: "数据库写入失败"),
             .failed("数据库写入失败")
         )
+    }
+
+    func testHistoryGroupsUseMeasurementDayAndDescendingOrder() throws {
+        let repository = try QNMeasurementRepository(inMemory: true)
+        let first = try repository.save(measurement: measurement(date: "2026-10-01T08:00:00+08:00", weight: 80), profile: profile())
+        let second = try repository.save(measurement: measurement(date: "2026-10-01T20:00:00+08:00", weight: 81), profile: profile())
+        let third = try repository.save(measurement: measurement(date: "2026-10-02T08:00:00+08:00", weight: 82), profile: profile())
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+        let groups = QNHistoryDayGroup.make(records: [first, third, second], calendar: calendar)
+
+        XCTAssertEqual(groups.count, 2)
+        XCTAssertEqual(groups[0].records.map(\.id), [third.id])
+        XCTAssertEqual(groups[1].records.map(\.id), [second.id, first.id])
+    }
+
+    func testPercentageComparisonUsesDirectDifference() throws {
+        let repository = try QNMeasurementRepository(inMemory: true)
+        var firstMeasurement = try measurement(date: "2026-10-01T08:00:00+08:00", weight: 80)
+        var secondMeasurement = try measurement(date: "2026-10-02T08:00:00+08:00", weight: 79)
+        var firstItems = try XCTUnwrap(firstMeasurement["items"] as? [[String: Any]])
+        var secondItems = try XCTUnwrap(secondMeasurement["items"] as? [[String: Any]])
+        if let index = firstItems.firstIndex(where: { ($0["type"] as? Int) == 3 }) { firstItems[index]["value"] = 28.1 }
+        if let index = secondItems.firstIndex(where: { ($0["type"] as? Int) == 3 }) { secondItems[index]["value"] = 26.5 }
+        firstMeasurement["items"] = firstItems
+        secondMeasurement["items"] = secondItems
+        let first = try repository.save(measurement: firstMeasurement, profile: profile())
+        let second = try repository.save(measurement: secondMeasurement, profile: profile())
+
+        let comparison = try XCTUnwrap(QNHistoryComparisonService.compare(start: first, end: second))
+        XCTAssertEqual(try XCTUnwrap(comparison.rows.first { $0.type == 3 }?.difference), -1.6, accuracy: 0.0001)
     }
 
     private func measurement(date: String, weight: Double, identifier: String = "test-device") throws -> [String: Any] {

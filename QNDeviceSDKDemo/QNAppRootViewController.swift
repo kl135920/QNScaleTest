@@ -7,6 +7,7 @@ public final class QNAppRootViewController: UIViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        UITabBar.appearance().isHidden = true
         let controller = UIHostingController(rootView: QNRootView().environmentObject(store))
         addChild(controller)
         controller.view.translatesAutoresizingMaskIntoConstraints = false
@@ -57,19 +58,92 @@ private struct QNRootView: View {
     }
 }
 
+private enum QNAppTab: Int, CaseIterable, Identifiable {
+    case dashboard
+    case trend
+    case measurement
+    case profile
+
+    var id: Int { rawValue }
+    var title: String {
+        switch self {
+        case .dashboard: return "首页"
+        case .trend: return "趋势"
+        case .measurement: return "测量"
+        case .profile: return "我的"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .dashboard: return "heart.text.square"
+        case .trend: return "chart.xyaxis.line"
+        case .measurement: return "scalemass"
+        case .profile: return "person.crop.circle"
+        }
+    }
+}
+
 private struct QNMainTabView: View {
     @EnvironmentObject private var store: QNAppStore
-    @State private var selectedTab = 0
+    @State private var selectedTab: QNAppTab = .dashboard
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            QNModernDashboardView(onMeasure: { selectedTab = 2 }).tabItem { Label("首页", systemImage: "heart.text.square") }.tag(0)
-            QNModernTrendView().tabItem { Label("趋势", systemImage: "chart.xyaxis.line") }.tag(1)
-            QNModernMeasurementView().tabItem { Label("测量", systemImage: "scalemass") }.tag(2)
-            QNProfileView().tabItem { Label("我的", systemImage: "person.crop.circle") }.tag(3)
+            QNModernDashboardView(onMeasure: { selectedTab = .measurement })
+                .tabItem { Label(QNAppTab.dashboard.title, systemImage: QNAppTab.dashboard.icon) }
+                .tag(QNAppTab.dashboard)
+            QNModernTrendView()
+                .tabItem { Label(QNAppTab.trend.title, systemImage: QNAppTab.trend.icon) }
+                .tag(QNAppTab.trend)
+            QNModernMeasurementView()
+                .tabItem { Label(QNAppTab.measurement.title, systemImage: QNAppTab.measurement.icon) }
+                .tag(QNAppTab.measurement)
+            QNProfileView()
+                .tabItem { Label(QNAppTab.profile.title, systemImage: QNAppTab.profile.icon) }
+                .tag(QNAppTab.profile)
         }
-        .tint(QNDesign.blue)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            QNFloatingTabBar(selection: $selectedTab)
+        }
         .environmentObject(store)
+    }
+}
+
+private struct QNFloatingTabBar: View {
+    @Binding var selection: QNAppTab
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(QNAppTab.allCases) { tab in
+                Button { selection = tab } label: {
+                    VStack(spacing: 3) {
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 18, weight: .semibold))
+                        Text(tab.title)
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .foregroundStyle(selection == tab ? QNDesign.blue : Color.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(selection == tab ? QNDesign.blue.opacity(0.10) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tab.title)
+                .accessibilityAddTraits(selection == tab ? .isSelected : [])
+            }
+        }
+        .padding(5)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(Color.primary.opacity(0.10), lineWidth: 0.5)
+        )
+        .shadow(color: Color.black.opacity(0.08), radius: 12, y: 4)
+        .padding(.horizontal, 20)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
     }
 }
 
@@ -805,7 +879,9 @@ private struct QNReportView: View {
                             Text("eightReasonMask：\(snapshot.eightReasonMask.map(String.init) ?? "—")")
                             Text("modeId：\(snapshot.modeId ?? "—")")
                             Text("SDK：\(snapshot.sdkVersion ?? "—")")
-                            Text("HMAC：\(snapshot.hmac ?? "—")").textSelection(.enabled)
+                            if snapshot.hmac != nil {
+                                Text("HMAC 已保存在导出的原始 JSON 中")
+                            }
                         }
                         .padding(.top, 10)
                         .font(.footnote.monospaced())
@@ -970,7 +1046,11 @@ private struct QNProfileView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                    Text("我的").font(.system(size: 36, weight: .bold, design: .rounded))
+                    Text("QNSCALE")
+                        .font(.caption2.weight(.bold))
+                        .tracking(1.2)
+                        .foregroundStyle(.secondary)
+                    Text("我的").font(.system(size: 34, weight: .bold))
                     if let profile = store.profile {
                         Button { showEditor = true } label: {
                             HStack(spacing: 16) {
@@ -980,7 +1060,7 @@ private struct QNProfileView: View {
                                     .background(QNDesign.blue.opacity(0.10)).clipShape(Circle())
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(profile.nickname).font(.title3.weight(.bold))
-                                    Text("\(profile.genderText) · \(String(format: "%.0f", profile.height)) cm")
+                                    Text("\(store.records.count) 条记录 · \(profile.genderText) · \(String(format: "%.0f", profile.height)) cm")
                                         .font(.subheadline).foregroundStyle(.secondary)
                                 }
                                 Spacer()
@@ -1006,6 +1086,23 @@ private struct QNProfileView: View {
                         .pickerStyle(.segmented).frame(width: 150)
                     }
                     .padding(16).qnCard(cornerRadius: 18)
+                    Text("体脂秤").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
+                    HStack(spacing: 14) {
+                        Image(systemName: "scalemass")
+                            .font(.headline)
+                            .foregroundStyle(QNDesign.blue)
+                            .frame(width: 26)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(deviceDisplayName).font(.body.weight(.medium))
+                            Text(deviceStatusText).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Circle()
+                            .fill(store.isConnected ? QNModernStyle.muscle : Color.secondary.opacity(0.35))
+                            .frame(width: 8, height: 8)
+                    }
+                    .padding(.horizontal, 16).padding(.vertical, 14)
+                    .qnCard(cornerRadius: 18)
                     Text("数据管理").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
                     VStack(spacing: 0) {
                         Button { showHistory = true } label: { QNSettingsRow(icon: "clock.arrow.circlepath", title: "历史记录", value: "\(store.records.count) 条") }.buttonStyle(.plain)
@@ -1048,18 +1145,44 @@ private struct QNProfileView: View {
                     }.qnCard(cornerRadius: 18)
                     Text("关于").font(.headline).foregroundStyle(.secondary).padding(.horizontal, 4)
                     VStack(spacing: 0) {
+                        QNSettingsRow(icon: "info.circle", title: "QNScaleTest", value: appVersion, showsChevron: false)
+                        Divider().padding(.leading, 54)
                         Button { showDeveloper = true } label: { QNSettingsRow(icon: "hammer", title: "开发者模式", value: nil) }.buttonStyle(.plain)
                         Divider().padding(.leading, 54)
                         QNSettingsRow(icon: "hand.raised", title: "本机保存，可选同步 Apple 健康", value: nil, showsChevron: false)
                     }.qnCard(cornerRadius: 18)
             }
-            .padding(.horizontal, 16).padding(.top, 0).padding(.bottom, 96)
+            .padding(.horizontal, QNModernStyle.horizontalPadding)
+            .padding(.top, 0)
+            .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
         .background(QNDesign.page.ignoresSafeArea())
         .sheet(isPresented: $showEditor) { QNProfileEditorView(profile: store.profile, isRequired: false) }
         .sheet(isPresented: $showHistory) { QNHistoryView() }
         .sheet(isPresented: $showDeveloper) { QNDeveloperView() }
         .sheet(item: $shareURL) { item in QNShareSheet(items: [item.url]) }
+    }
+
+    private var deviceStatusText: String {
+        if store.isConnected {
+            return "已连接"
+        }
+        if let device = store.devices.first {
+            let kind = device.supportsEightElectrodes ? "八电极" : device.deviceType
+            return "已发现 · \(kind)"
+        }
+        return "未连接"
+    }
+
+    private var deviceDisplayName: String {
+        if store.isConnected { return store.activeDeviceName }
+        return store.devices.first?.name ?? "体脂秤"
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+        return "v\(version) (\(build))"
     }
 }
 
@@ -1102,37 +1225,58 @@ private struct QNHealthSettingsRow: View {
     }
 }
 
-private struct QNHistoryView: View {
+struct QNHistoryView: View {
     @EnvironmentObject private var store: QNAppStore
     @Environment(\.dismiss) private var dismiss
     @State private var deleting: QNMeasurementSnapshot?
     @State private var report: QNMeasurementSnapshot?
     @State private var shareItem: QNModernShareItem?
 
+    private var groups: [QNHistoryDayGroup] {
+        QNHistoryDayGroup.make(records: store.records)
+    }
+
     var body: some View {
         NavigationView {
             List {
-                ForEach(QNMeasurementTimeline.ordered(store.records, ascending: false)) { snapshot in
-                    Button { report = snapshot } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(snapshot.displayDate)
-                                if snapshot.isAbnormal {
-                                    Text("异常结果已保留").font(.caption).foregroundStyle(.orange)
+                if groups.isEmpty {
+                    Text("还没有测量记录").foregroundStyle(.secondary)
+                } else {
+                    ForEach(groups) { group in
+                        Section(Self.dayFormatter.string(from: group.day)) {
+                            ForEach(group.records) { snapshot in
+                                Button { report = snapshot } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "scalemass")
+                                            .foregroundStyle(QNModernStyle.action)
+                                            .frame(width: 24)
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(Self.timeFormatter.string(from: snapshot.measureTime))
+                                                .font(.subheadline.weight(.semibold))
+                                            if snapshot.isAbnormal {
+                                                Text("异常结果已保留").font(.caption).foregroundStyle(.orange)
+                                            }
+                                        }
+                                        Spacer()
+                                        VStack(alignment: .trailing, spacing: 3) {
+                                            Text(snapshot.weight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "—")
+                                                .font(.body.weight(.semibold).monospacedDigit())
+                                            Text(snapshot.bodyFatRate.map { QNDisplayFormatter.number($0, maximumFractionDigits: 1) + " %" } ?? "—")
+                                                .font(.caption).foregroundStyle(.secondary)
+                                        }
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .swipeActions {
+                                    Button(role: .destructive) { deleting = snapshot } label: {
+                                        Label("删除", systemImage: "trash")
+                                    }
                                 }
                             }
-                            Spacer()
-                            VStack(alignment: .trailing, spacing: 3) {
-                                Text(snapshot.weight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "—")
-                                    .font(.body.weight(.semibold).monospacedDigit())
-                                Text(snapshot.bodyFatRate.map { QNDisplayFormatter.number($0, maximumFractionDigits: 1) + " %" } ?? "—")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
                         }
-                    }
-                    .buttonStyle(.plain)
-                    .swipeActions {
-                        Button(role: .destructive) { deleting = snapshot } label: { Label("删除", systemImage: "trash") }
                     }
                 }
             }
@@ -1150,6 +1294,20 @@ private struct QNHistoryView: View {
             .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
         }
     }
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年M月d日 EEEE"
+        return formatter
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 }
 
 private struct QNDeveloperView: View {

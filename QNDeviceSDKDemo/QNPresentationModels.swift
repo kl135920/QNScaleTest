@@ -81,6 +81,25 @@ enum QNMeasurementTimeline {
     }
 }
 
+struct QNHistoryDayGroup: Identifiable {
+    let day: Date
+    let records: [QNMeasurementSnapshot]
+
+    var id: Date { day }
+
+    static func make(
+        records: [QNMeasurementSnapshot],
+        calendar: Calendar = .current
+    ) -> [QNHistoryDayGroup] {
+        let grouped = Dictionary(grouping: QNMeasurementTimeline.ordered(records, ascending: false)) {
+            calendar.startOfDay(for: $0.measureTime)
+        }
+        return grouped.keys.sorted(by: >).map { day in
+            QNHistoryDayGroup(day: day, records: grouped[day] ?? [])
+        }
+    }
+}
+
 struct QNGoalProgress: Equatable {
     let startWeight: Double
     let currentWeight: Double

@@ -7,6 +7,9 @@ struct QNModernTrendView: View {
     @State private var range: QNTrendRange = .thirtyDays
     @State private var showMetricPicker = false
     @State private var showComparison = false
+    @State private var showHistory = false
+    @State private var report: QNMeasurementSnapshot?
+    @State private var shareItem: QNModernShareItem?
 
     private var series: QNTrendSeries {
         QNTrendSeries.make(records: store.records, metric: metric, range: range)
@@ -14,14 +17,20 @@ struct QNModernTrendView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("趋势").font(.largeTitle.bold())
-                        Spacer()
-                        Button("对比") { showComparison = true }
+            VStack(alignment: .leading, spacing: QNModernStyle.sectionSpacing) {
+                Text("QNSCALE HEALTH")
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.2)
+                    .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("趋势").font(.system(size: 34, weight: .bold))
+                    Spacer()
+                    Button { showComparison = true } label: {
+                        Label("对比", systemImage: "arrow.left.arrow.right")
                             .font(.subheadline.weight(.semibold))
-                            .disabled(store.records.count < 2)
                     }
+                    .disabled(store.records.count < 2)
+                }
 
                     Button { showMetricPicker = true } label: {
                         HStack {
@@ -50,22 +59,23 @@ struct QNModernTrendView: View {
                         }
                     }
 
-                    if series.points.isEmpty {
-                        emptyState
-                    } else {
-                        QNModernTrendChart(series: series, metric: metric, allRecords: store.records)
-                        if series.points.count == 1 {
-                            Label("需要更多该指标的数据才能形成趋势", systemImage: "info.circle")
-                                .font(.footnote).foregroundStyle(.secondary)
-                        }
-                        if let statistics = series.statistics {
-                            statisticsCard(statistics)
-                        }
+                if series.points.isEmpty {
+                    emptyState
+                } else {
+                    QNModernTrendChart(series: series, metric: metric, allRecords: store.records)
+                    if series.points.count == 1 {
+                        Label("需要更多该指标的数据才能形成趋势", systemImage: "info.circle")
+                            .font(.footnote).foregroundStyle(.secondary)
                     }
+                    if let statistics = series.statistics {
+                        statisticsCard(statistics)
+                    }
+                }
+                historySummary
             }
             .padding(.horizontal, QNModernStyle.horizontalPadding)
             .padding(.top, 0)
-            .padding(.bottom, 96)
+            .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
         .background(QNModernStyle.page.ignoresSafeArea())
         .sheet(isPresented: $showMetricPicker) {
@@ -74,6 +84,13 @@ struct QNModernTrendView: View {
         .sheet(isPresented: $showComparison) {
             QNModernComparisonPickerView()
         }
+        .sheet(isPresented: $showHistory) { QNHistoryView() }
+        .fullScreenCover(item: $report) { snapshot in
+            QNModernReportView(snapshot: snapshot) {
+                shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
+            }
+        }
+        .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
     }
 
     private var emptyState: some View {
@@ -86,6 +103,53 @@ struct QNModernTrendView: View {
         .frame(maxWidth: .infinity)
         .padding(26)
         .qnModernCard()
+    }
+
+    private var historySummary: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("历史测量记录").font(.title3.weight(.bold))
+                Spacer()
+                Button("全部记录") { showHistory = true }
+                    .font(.subheadline.weight(.semibold))
+                    .disabled(store.records.isEmpty)
+            }
+            if store.records.isEmpty {
+                Text("还没有测量记录")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(QNModernStyle.cardPadding)
+                    .qnModernCard(cornerRadius: 18)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(QNMeasurementTimeline.ordered(store.records, ascending: false).prefix(3).enumerated()), id: \.element.id) { index, snapshot in
+                        if index > 0 { Divider().padding(.leading, 50) }
+                        Button { report = snapshot } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "scalemass")
+                                    .foregroundStyle(QNModernStyle.action)
+                                    .frame(width: 26)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(snapshot.weight.map { "\(store.displayWeightUnit.text(fromKilograms: $0)) \(store.displayWeightUnit.symbol)" } ?? "—")
+                                        .font(.body.weight(.semibold).monospacedDigit())
+                                    Text(snapshot.displayDate).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(snapshot.bodyFatRate.map { QNDisplayFormatter.number($0, maximumFractionDigits: 1) + " %" } ?? "—")
+                                    .font(.subheadline.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, QNModernStyle.cardPadding)
+                            .padding(.vertical, 13)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .qnModernCard(cornerRadius: 18)
+            }
+        }
     }
 
     private func statisticsCard(_ statistics: QNTrendStatistics) -> some View {

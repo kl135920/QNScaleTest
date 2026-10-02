@@ -5,6 +5,7 @@ struct QNModernDashboardView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var report: QNMeasurementSnapshot?
     @State private var reference: QNMeasurementSnapshot?
+    @State private var showHistory = false
     @State private var shareItem: QNModernShareItem?
     let onMeasure: () -> Void
 
@@ -19,14 +20,14 @@ struct QNModernDashboardView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                    header
-                    if let latest {
+            VStack(alignment: .leading, spacing: QNModernStyle.sectionSpacing) {
+                header
+                if let latest {
                         Button { report = latest } label: {
                             QNModernWeightCard(
                                 snapshot: latest,
                                 previousWeight: previousWeight,
-                                targetWeight: store.profile?.targetWeight,
+                                targetWeight: nil,
                                 showsDisclosure: true
                             )
                         }
@@ -64,25 +65,22 @@ struct QNModernDashboardView: View {
                             )
                         }
 
-                        Button { reference = latest } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: "list.clipboard").foregroundStyle(QNModernStyle.action)
-                                Text("指标参考").font(.headline)
-                                Spacer()
-                                Text("查看评价与依据").font(.caption).foregroundStyle(.secondary)
-                                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-                            }
-                            .padding(QNModernStyle.cardPadding)
-                            .qnModernCard(cornerRadius: 18)
+                    goalCard
+                    QNModernSegmentCard(snapshot: latest)
+                    VStack(spacing: 0) {
+                        navigationAction(title: "指标参考", subtitle: "查看评价与依据", icon: "list.clipboard") {
+                            reference = latest
                         }
-                        .buttonStyle(.plain)
-
-                        goalCard
-                        QNModernSegmentCard(snapshot: latest)
-                        QNModernPrimaryButton(title: "开始测量", systemImage: "scalemass", action: onMeasure)
-                    } else {
-                        emptyState
+                        Divider().padding(.leading, 50)
+                        navigationAction(title: "历史记录", subtitle: "\(store.records.count) 条", icon: "clock.arrow.circlepath") {
+                            showHistory = true
+                        }
                     }
+                    .qnModernCard(cornerRadius: 18)
+                    QNModernPrimaryButton(title: "开始测量", systemImage: "scalemass", action: onMeasure)
+                } else {
+                    emptyState
+                }
 
                     if store.pendingMeasurement != nil {
                         QNModernPrimaryButton(title: "重试保存本次测量", systemImage: "arrow.clockwise") {
@@ -95,7 +93,7 @@ struct QNModernDashboardView: View {
             }
             .padding(.horizontal, QNModernStyle.horizontalPadding)
             .padding(.top, 0)
-            .padding(.bottom, 96)
+            .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
         .background(QNModernStyle.page.ignoresSafeArea())
         .overlay(alignment: .top) {
@@ -115,6 +113,7 @@ struct QNModernDashboardView: View {
         .sheet(item: $reference) { snapshot in
             QNModernMetricReferenceSheet(snapshot: snapshot)
         }
+        .sheet(isPresented: $showHistory) { QNHistoryView() }
         .fullScreenCover(item: $report) { snapshot in
             QNModernReportView(snapshot: snapshot) {
                 shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
@@ -125,11 +124,34 @@ struct QNModernDashboardView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("身体数据").font(.largeTitle.bold())
-            Text(latest?.displayDate ?? "还没有测量记录")
+            Text("身体数据").font(.system(size: 34, weight: .bold, design: .default))
+            Text(latest.map { "\($0.displayDate) · 最近测量" } ?? "还没有测量记录")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func navigationAction(
+        title: String,
+        subtitle: String,
+        icon: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(QNModernStyle.action)
+                    .frame(width: 26)
+                Text(title).font(.body.weight(.semibold))
+                Spacer(minLength: 8)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, QNModernStyle.cardPadding)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -184,19 +206,23 @@ struct QNModernMeasurementView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                    HStack {
-                        Text("测量").font(.largeTitle.bold())
-                        Spacer()
-                        connectionBadge
-                    }
-                    stateCard
-                    if let error = store.lastError, case .failed = store.measurementUIState {
-                        Text(error).font(.footnote).foregroundStyle(.red)
-                    }
+                Text("QNSCALE")
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.2)
+                    .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("测量").font(.system(size: 34, weight: .bold))
+                    Spacer()
+                    connectionBadge
+                }
+                stateCard
+                if let error = store.lastError, case .failed = store.measurementUIState {
+                    Text(error).font(.footnote).foregroundStyle(.red)
+                }
             }
             .padding(.horizontal, QNModernStyle.horizontalPadding)
             .padding(.top, 0)
-            .padding(.bottom, 96)
+            .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
         .background(QNModernStyle.page.ignoresSafeArea())
         .onAppear { store.beginAutomaticConnection() }
@@ -237,7 +263,7 @@ struct QNModernMeasurementView: View {
 
     @ViewBuilder
     private var stateCard: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 20) {
             switch store.measurementUIState {
             case .unavailable(let message):
                 stateHeader(icon: "exclamationmark.triangle", title: "暂时无法测量", message: message, tint: .orange)
@@ -294,8 +320,9 @@ struct QNModernMeasurementView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(22)
-        .qnModernCard(cornerRadius: 24)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 28)
+        .qnModernCard(cornerRadius: 20)
     }
 
     private var retryButton: some View {
@@ -377,7 +404,9 @@ struct QNModernReportView: View {
                             rawLine("eightReasonMask", snapshot.eightReasonMask)
                             Text("modeId：\(snapshot.modeId ?? "—")")
                             Text("SDK：\(snapshot.sdkVersion ?? "—")")
-                            Text("HMAC：\(snapshot.hmac ?? "—")").textSelection(.enabled)
+                            if snapshot.hmac != nil {
+                                Text("HMAC 已保存在导出的原始 JSON 中")
+                            }
                         }
                         .padding(.top, 10)
                         .font(.footnote.monospaced())
@@ -388,7 +417,7 @@ struct QNModernReportView: View {
                 }
                 .padding(.horizontal, QNModernStyle.horizontalPadding)
                 .padding(.top, 10)
-                .padding(.bottom, 28)
+                .padding(.bottom, QNModernStyle.pageBottomPadding)
             }
         }
         .background(QNModernStyle.page.ignoresSafeArea())
@@ -397,13 +426,13 @@ struct QNModernReportView: View {
     private var compactHeader: some View {
         HStack(spacing: 12) {
             Button { dismiss() } label: {
-                Image(systemName: "xmark")
+                Image(systemName: "chevron.left")
                     .font(.body.weight(.semibold))
                     .frame(width: 36, height: 36)
                     .background(Color.primary.opacity(0.06))
                     .clipShape(Circle())
             }
-            .accessibilityLabel("关闭")
+            .accessibilityLabel("返回")
             .foregroundStyle(QNModernStyle.action)
             Spacer()
             Text("测量报告")
@@ -421,8 +450,9 @@ struct QNModernReportView: View {
             .accessibilityLabel("导出测量报告")
             .foregroundStyle(QNModernStyle.action)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(QNModernStyle.card)
     }
 
     private func reportTile(_ type: Int) -> some View {

@@ -8,8 +8,10 @@ enum QNModernStyle {
     static let page = Color(uiColor: .systemGroupedBackground)
     static let card = Color(uiColor: .secondarySystemGroupedBackground)
     static let separator = Color.primary.opacity(0.07)
-    static let horizontalPadding: CGFloat = 16
+    static let horizontalPadding: CGFloat = 20
     static let cardPadding: CGFloat = 16
+    static let sectionSpacing: CGFloat = 16
+    static let pageBottomPadding: CGFloat = 24
 }
 
 extension View {
@@ -157,6 +159,7 @@ struct QNModernWeightCard: View {
 
 struct QNModernSegmentCard: View {
     @EnvironmentObject private var store: QNAppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let snapshot: QNMeasurementSnapshot
     @State private var showFat = false
     @State private var selected: QNBodyRegion = .trunk
@@ -189,7 +192,8 @@ struct QNModernSegmentCard: View {
 
             if hasAnySegmentValue {
                 QNModernBodyDiagram(snapshot: snapshot, showFat: showFat, selected: $selected)
-                    .frame(height: 270)
+                    .frame(height: 220)
+                segmentValues
                 QNModernSegmentDetails(snapshot: snapshot, region: selected, showFat: showFat)
             } else {
                 HStack(spacing: 10) {
@@ -213,6 +217,62 @@ struct QNModernSegmentCard: View {
             selected = first
         }
     }
+
+    private var segmentValues: some View {
+        VStack(spacing: 8) {
+            segmentButton(.trunk)
+            if dynamicTypeSize.isAccessibilitySize {
+                ForEach([QNBodyRegion.rightArm, .leftArm, .rightLeg, .leftLeg]) { segmentButton($0) }
+            } else {
+                HStack(spacing: 8) {
+                    segmentButton(.rightArm)
+                    segmentButton(.leftArm)
+                }
+                HStack(spacing: 8) {
+                    segmentButton(.rightLeg)
+                    segmentButton(.leftLeg)
+                }
+            }
+        }
+    }
+
+    private func segmentButton(_ region: QNBodyRegion) -> some View {
+        let available = region.hasValue(showFat: showFat, in: snapshot)
+        let type = showFat ? region.fatMassType : region.muscleType
+        return Button {
+            if available { selected = region }
+        } label: {
+            HStack {
+                Text(region.title)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Text(segmentValue(region: region, type: type))
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(selected == region && available ? accent.opacity(0.10) : Color.primary.opacity(0.035))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(selected == region && available ? accent : Color.clear, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!available)
+        .opacity(available ? 1 : 0.55)
+    }
+
+    private func segmentValue(region: QNBodyRegion, type: Int) -> String {
+        guard let value = region.value(type: type, in: snapshot) else { return "—" }
+        let definition = QNMetricCatalog.definition(for: type)
+        if definition.unit == "kg" {
+            return "\(store.displayWeightUnit.text(fromKilograms: value, precision: definition.precision)) \(store.displayWeightUnit.symbol)"
+        }
+        return QNDisplayFormatter.number(value, maximumFractionDigits: definition.precision)
+    }
 }
 
 private struct QNModernBodyDiagram: View {
@@ -225,12 +285,12 @@ private struct QNModernBodyDiagram: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let diagramWidth = min(proxy.size.width * 0.62, 210)
+            let diagramWidth = min(proxy.size.width * 0.54, 180)
             ZStack {
                 Circle()
                     .fill(Color.secondary.opacity(0.18))
                     .frame(width: diagramWidth * 0.24, height: diagramWidth * 0.24)
-                    .position(x: proxy.size.width / 2, y: 31)
+                    .position(x: proxy.size.width / 2, y: 25)
                     .accessibilityHidden(true)
 
                 ForEach(QNBodyRegion.allCases) { region in
@@ -241,8 +301,8 @@ private struct QNModernBodyDiagram: View {
                             QNModernBodyRegionShape(region: region)
                                 .stroke(available && selected == region ? accent.opacity(0.95) : Color.primary.opacity(0.08), lineWidth: 1)
                         )
-                        .frame(width: diagramWidth, height: 220)
-                        .position(x: proxy.size.width / 2, y: 150)
+                        .frame(width: diagramWidth, height: 190)
+                        .position(x: proxy.size.width / 2, y: 125)
                         .contentShape(QNModernBodyRegionShape(region: region))
                         .onTapGesture { if available { selected = region } }
                         .allowsHitTesting(available)
