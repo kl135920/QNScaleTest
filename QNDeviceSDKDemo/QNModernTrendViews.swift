@@ -13,9 +13,8 @@ struct QNModernTrendView: View {
     }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
                     HStack(alignment: .firstTextBaseline) {
                         Text("趋势").font(.largeTitle.bold())
                         Spacer()
@@ -63,19 +62,17 @@ struct QNModernTrendView: View {
                             statisticsCard(statistics)
                         }
                     }
-                }
-                .padding(.horizontal, QNModernStyle.horizontalPadding)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
             }
-            .background(QNModernStyle.page.ignoresSafeArea())
-            .navigationBarHidden(true)
-            .sheet(isPresented: $showMetricPicker) {
-                QNModernMetricPicker(selection: $metric)
-            }
-            .sheet(isPresented: $showComparison) {
-                QNModernComparisonPickerView()
-            }
+            .padding(.horizontal, QNModernStyle.horizontalPadding)
+            .padding(.top, 8)
+            .padding(.bottom, 96)
+        }
+        .background(QNModernStyle.page.ignoresSafeArea())
+        .sheet(isPresented: $showMetricPicker) {
+            QNModernMetricPicker(selection: $metric)
+        }
+        .sheet(isPresented: $showComparison) {
+            QNModernComparisonPickerView()
         }
     }
 

@@ -968,9 +968,8 @@ private struct QNProfileView: View {
     @State private var showDeveloper = false
     @State private var shareURL: QNShareItem?
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
                     Text("我的").font(.system(size: 36, weight: .bold, design: .rounded))
                     if let profile = store.profile {
                         Button { showEditor = true } label: {
@@ -1053,16 +1052,14 @@ private struct QNProfileView: View {
                         Divider().padding(.leading, 54)
                         QNSettingsRow(icon: "hand.raised", title: "本机保存，可选同步 Apple 健康", value: nil, showsChevron: false)
                     }.qnCard(cornerRadius: 18)
-                }
-                .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 28)
             }
-            .background(QNDesign.page.ignoresSafeArea())
-            .navigationBarHidden(true)
-            .sheet(isPresented: $showEditor) { QNProfileEditorView(profile: store.profile, isRequired: false) }
-            .sheet(isPresented: $showHistory) { QNHistoryView() }
-            .sheet(isPresented: $showDeveloper) { QNDeveloperView() }
-            .sheet(item: $shareURL) { item in QNShareSheet(items: [item.url]) }
+            .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 96)
         }
+        .background(QNDesign.page.ignoresSafeArea())
+        .sheet(isPresented: $showEditor) { QNProfileEditorView(profile: store.profile, isRequired: false) }
+        .sheet(isPresented: $showHistory) { QNHistoryView() }
+        .sheet(isPresented: $showDeveloper) { QNDeveloperView() }
+        .sheet(item: $shareURL) { item in QNShareSheet(items: [item.url]) }
     }
 }
 

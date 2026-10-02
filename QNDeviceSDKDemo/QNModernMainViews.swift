@@ -181,9 +181,8 @@ struct QNModernMeasurementView: View {
     @State private var shareItem: QNModernShareItem?
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         Text("测量").font(.largeTitle.bold())
                         Spacer()
@@ -193,24 +192,27 @@ struct QNModernMeasurementView: View {
                     if let error = store.lastError, case .failed = store.measurementUIState {
                         Text(error).font(.footnote).foregroundStyle(.red)
                     }
-                }
-                .padding(.horizontal, QNModernStyle.horizontalPadding)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
             }
-            .background(QNModernStyle.page.ignoresSafeArea())
-            .navigationBarHidden(true)
-            .onAppear { store.beginAutomaticConnection() }
-            .onChange(of: store.lastSavedMeasurement?.id) { _ in
+            .padding(.horizontal, QNModernStyle.horizontalPadding)
+            .padding(.top, 8)
+            .padding(.bottom, 96)
+        }
+        .background(QNModernStyle.page.ignoresSafeArea())
+        .onAppear { store.beginAutomaticConnection() }
+        .onChange(of: store.lastSavedMeasurement?.id) { _ in
+            report = store.lastSavedMeasurement
+        }
+        .onChange(of: store.measurementState) { state in
+            if state.contains("已保存") {
                 report = store.lastSavedMeasurement
             }
-            .fullScreenCover(item: $report) { snapshot in
-                QNModernReportView(snapshot: snapshot) {
-                    shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
-                }
-            }
-            .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
         }
+        .fullScreenCover(item: $report) { snapshot in
+            QNModernReportView(snapshot: snapshot) {
+                shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
+            }
+        }
+        .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
     }
 
     private var connectionBadge: some View {
@@ -273,7 +275,18 @@ struct QNModernMeasurementView: View {
                     .font(.subheadline).foregroundStyle(.secondary)
                 secondaryButton(title: "断开连接", systemImage: "link.badge.minus") { store.disconnectAndSuspendAutomaticConnection() }
             case .completed:
-                stateHeader(icon: "checkmark.circle.fill", title: "测量完成", message: "正在保存本次测量结果。", tint: QNModernStyle.muscle)
+                let isSaved = store.measurementState.contains("已保存")
+                stateHeader(
+                    icon: "checkmark.circle.fill",
+                    title: isSaved ? "测量结果已保存" : "测量完成",
+                    message: isSaved ? "正在打开本次测量报告。" : "正在保存本次测量结果。",
+                    tint: QNModernStyle.muscle
+                )
+                if isSaved, let snapshot = store.lastSavedMeasurement {
+                    secondaryButton(title: "查看本次报告", systemImage: "doc.text.magnifyingglass") {
+                        report = snapshot
+                    }
+                }
             case .failed(let message):
                 stateHeader(icon: "exclamationmark.circle", title: "连接或测量失败", message: message, tint: .red)
                 retryButton
