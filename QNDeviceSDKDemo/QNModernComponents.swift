@@ -69,7 +69,7 @@ struct QNModernMetricTile: View {
             }
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text(formatted.number)
-                    .font(.system(.title2, design: .rounded, weight: .bold).monospacedDigit())
+                    .font(.system(size: 27, weight: .bold, design: .rounded).monospacedDigit())
                     .minimumScaleFactor(0.72)
                 if value != nil, let unit = formatted.unit {
                     Text(unit).font(.caption.weight(.medium)).foregroundStyle(.secondary)
