@@ -109,10 +109,13 @@ struct QNModernWeightCard: View {
         return QNDisplayFormatter.number(value, maximumFractionDigits: 2, signed: true)
     }
 
-    private var targetDelta: String? {
+    private var targetRelation: String? {
         guard let weight = snapshot.weight, let targetWeight else { return nil }
-        let value = store.displayWeightUnit.fromKilograms(weight - targetWeight)
-        return QNDisplayFormatter.number(value, maximumFractionDigits: 2, signed: true)
+        let difference = weight - targetWeight
+        let value = store.displayWeightUnit.fromKilograms(abs(difference))
+        let number = QNDisplayFormatter.number(value, maximumFractionDigits: 2)
+        if abs(difference) < 0.000_001 { return "已达到目标" }
+        return "\(difference > 0 ? "高于" : "低于")目标 \(number) \(store.displayWeightUnit.symbol)"
     }
 
     var body: some View {
@@ -139,8 +142,8 @@ struct QNModernWeightCard: View {
                     Text("暂无上一条有效体重")
                 }
                 Spacer(minLength: 4)
-                if let targetDelta {
-                    Text("距目标 \(targetDelta) \(store.displayWeightUnit.symbol)")
+                if let targetRelation {
+                    Text(targetRelation)
                 }
             }
             .font(.caption)

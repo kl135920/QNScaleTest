@@ -223,6 +223,10 @@ final class QNScaleTestPersistenceTests: XCTestCase {
             QNMeasurementUIState.resolve(sdkState: "初始化成功", bluetoothState: "开启", connectionState: "已连接", isScanning: false, deviceName: "QN-Scale", measurementState: "测量生物阻抗", weight: 84.2, operationError: nil),
             .measuring(weight: 84.2, state: "测量生物阻抗")
         )
+        XCTAssertEqual(
+            QNMeasurementUIState.resolve(sdkState: "初始化成功", bluetoothState: "开启", connectionState: "已连接", isScanning: false, deviceName: "QN-Scale", measurementState: "保存失败", weight: 84.2, operationError: "数据库写入失败"),
+            .failed("数据库写入失败")
+        )
     }
 
     private func measurement(date: String, weight: Double, identifier: String = "test-device") throws -> [String: Any] {

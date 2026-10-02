@@ -1019,7 +1019,7 @@ private struct QNProfileView: View {
                             QNHealthSettingsRow(
                                 icon: "heart.fill",
                                 title: "健康权限",
-                                subtitle: "写入：\(store.healthKitStatus) · 读取：\(store.healthKitReadStatus)",
+                                subtitle: "\(store.healthKitStatus) · 读取：\(store.healthKitReadStatus)",
                                 trailing: store.healthKitIsSyncing ? "处理中" : nil
                             )
                         }

@@ -174,7 +174,8 @@ enum QNBodyRegion: String, CaseIterable, Identifiable {
     }
 
     func hasValue(showFat: Bool, in snapshot: QNMeasurementSnapshot) -> Bool {
-        value(type: showFat ? fatMassType : muscleType, in: snapshot) != nil
+        let types = showFat ? [fatMassType, fatIndexType] : [muscleType, muscleIndexType]
+        return types.contains { value(type: $0, in: snapshot) != nil }
     }
 }
 
@@ -301,6 +302,7 @@ enum QNMeasurementUIState: Equatable {
     ) -> QNMeasurementUIState {
         if sdkState == "初始化失败" { return .unavailable(operationError ?? "SDK 初始化失败") }
         if bluetoothState == "关闭" || bluetoothState == "未授权" { return .unavailable("蓝牙\(bluetoothState)") }
+        if measurementState.contains("失败") { return .failed(operationError ?? measurementState) }
         if connectionState == "连接失败" { return .failed(operationError ?? "连接失败，请重试") }
         if connectionState == "连接中" { return .connecting(deviceName) }
         if isScanning && connectionState != "已连接" { return .scanning }

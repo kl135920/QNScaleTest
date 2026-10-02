@@ -83,7 +83,7 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
             deviceName: activeDeviceName,
             measurementState: measurementState,
             weight: weight,
-            operationError: service.lastOperationError
+            operationError: measurementState.contains("失败") ? lastError : service.lastOperationError
         )
     }
     var healthKitLastSyncSummary: String? { healthKitLastSync?.resultText }
@@ -290,7 +290,10 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
                 self.lastError = nil
                 self.showToast(saved.isAbnormal ? "异常结果已保留" : "测量结果已保存")
                 if self.healthKitAutoSyncEnabled { Task { await self.writeMeasurementToHealthKit(saved) } }
-            } catch { self.lastError = "测量已收到但保存失败：\(error.localizedDescription)；结果已保留，可重试" }
+            } catch {
+                self.measurementState = "保存失败"
+                self.lastError = "测量已收到但保存失败：\(error.localizedDescription)；结果已保留，可重试"
+            }
         }
     }
 
@@ -301,11 +304,15 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
             lastSavedMeasurement = saved
             records = try repository.fetchAll()
             clearPendingMeasurement()
+            measurementState = saved.isAbnormal ? "测量异常，已保存原始结果" : "测量完成，已保存"
             lastError = nil
             showToast(saved.isAbnormal ? "异常结果已保留" : "测量结果已保存")
             if healthKitAutoSyncEnabled { Task { await self.writeMeasurementToHealthKit(saved) } }
         }
-        catch { lastError = "重试保存失败：\(error.localizedDescription)" }
+        catch {
+            measurementState = "保存失败"
+            lastError = "重试保存失败：\(error.localizedDescription)"
+        }
     }
 
     func scaleServiceDidReceiveLog(_ line: String) { objectWillChange.send() }
