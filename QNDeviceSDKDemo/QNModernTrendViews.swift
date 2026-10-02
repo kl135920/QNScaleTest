@@ -9,7 +9,6 @@ struct QNModernTrendView: View {
     @State private var showComparison = false
     @State private var showHistory = false
     @State private var report: QNMeasurementSnapshot?
-    @State private var shareItem: QNModernShareItem?
 
     private var series: QNTrendSeries {
         QNTrendSeries.make(records: store.records, metric: metric, range: range)
@@ -69,6 +68,7 @@ struct QNModernTrendView: View {
             .padding(.top, QNModernStyle.pageTopPadding)
             .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
+        .qnFloatingNavigationClearance()
         .background(QNModernStyle.page.ignoresSafeArea())
         .sheet(isPresented: $showMetricPicker) {
             QNModernMetricPicker(selection: $metric)
@@ -78,11 +78,8 @@ struct QNModernTrendView: View {
         }
         .sheet(isPresented: $showHistory) { QNHistoryView() }
         .fullScreenCover(item: $report) { snapshot in
-            QNModernReportView(snapshot: snapshot) {
-                shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
-            }
+            QNModernReportView(snapshot: snapshot)
         }
-        .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
     }
 
     private var emptyState: some View {
@@ -137,6 +134,7 @@ struct QNModernTrendView: View {
                             .padding(.vertical, 13)
                         }
                         .buttonStyle(.plain)
+                        .qnUITestFrame("trend.history.\(index)")
                     }
                 }
                 .qnModernCard(cornerRadius: 18)
@@ -209,7 +207,7 @@ private struct QNModernMetricPicker: View {
     }
 }
 
-private struct QNModernTrendChart: View {
+struct QNModernTrendChart: View {
     @EnvironmentObject private var store: QNAppStore
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let series: QNTrendSeries
@@ -217,6 +215,13 @@ private struct QNModernTrendChart: View {
     let allRecords: [QNMeasurementSnapshot]
     @State private var selectedID: UUID?
     private let chartHeight: CGFloat = 220
+
+    init(series: QNTrendSeries, metric: QNTrendMetric, allRecords: [QNMeasurementSnapshot], initialSelectedID: UUID? = nil) {
+        self.series = series
+        self.metric = metric
+        self.allRecords = allRecords
+        _selectedID = State(initialValue: initialSelectedID)
+    }
 
     private var selectedPoint: QNTrendPoint? {
         series.points.first { $0.id == selectedID }

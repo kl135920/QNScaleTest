@@ -14,7 +14,7 @@ private struct QNUIHealthKitStub: QNHealthKitServiceProtocol {
 
 final class QNScaleTestVisualTests: XCTestCase {
     @MainActor
-    private func makeStore(partial: Bool = false, empty: Bool = false, single: Bool = false, abnormal: Bool = false) throws -> QNAppStore {
+    private func makeStore(partial: Bool = false, empty: Bool = false, single: Bool = false, abnormal: Bool = false, missingRightArm: Bool = false) throws -> QNAppStore {
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "QNScaleMeasurementFixture.redacted", withExtension: "json"))
         let fixture = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
         let profile = QNUserProfile(userId: "ui-test-only", nickname: "测试用户", gender: "male", birthday: Date(timeIntervalSince1970: 500000000), height: 169, athleteType: 0, targetWeight: 70)
@@ -34,6 +34,7 @@ final class QNScaleTestVisualTests: XCTestCase {
                 var items = try XCTUnwrap(measurement["items"] as? [[String: Any]])
                 if let item = items.firstIndex(where: { ($0["type"] as? Int) == 1 }) { items[item]["value"] = weight }
                 if partial { items = items.filter { [1, 2, 3, 12].contains($0["type"] as? Int ?? -1) } }
+                if missingRightArm { items = items.filter { ![101, 106, 113, 119].contains($0["type"] as? Int ?? -1) } }
                 measurement["items"] = items
                 _ = try repository.save(measurement: measurement, profile: profile)
             }
@@ -43,16 +44,18 @@ final class QNScaleTestVisualTests: XCTestCase {
     }
 
     @MainActor
-    private func capture<V: View>(_ name: String, view: V, store: QNAppStore, dark: Bool = false, large: Bool = false, size: CGSize? = nil, scrollToBottom: Bool = false) async throws {
+    private func capture<V: View>(_ name: String, view: V, store: QNAppStore, dark: Bool = false, large: Bool = false, size: CGSize? = nil, scrollToBottom: Bool = false, lastContentID: String? = nil) async throws {
         UITabBar.appearance().isHidden = true
         let frame = CGRect(origin: .zero, size: size ?? UIScreen.main.bounds.size)
         let window = UIWindow(frame: frame)
         if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first { window.windowScene = scene }
         window.frame = frame
+        var layoutFrames: [String: CGRect] = [:]
         let controller = UIHostingController(rootView: view
             .environmentObject(store)
             .environment(\.dynamicTypeSize, large ? .accessibility3 : .large)
-            .preferredColorScheme(dark ? .dark : .light))
+            .preferredColorScheme(dark ? .dark : .light)
+            .onPreferenceChange(QNUILayoutFrames.self) { layoutFrames = $0 })
         window.rootViewController = controller
         window.makeKeyAndVisible()
         defer { window.isHidden = true; window.rootViewController = nil }
@@ -63,6 +66,13 @@ final class QNScaleTestVisualTests: XCTestCase {
             let scroll = try XCTUnwrap(scrolls.filter { !$0.isHidden && $0.bounds.height > 100 && $0.contentSize.height > $0.bounds.height }.max { $0.contentSize.height < $1.contentSize.height })
             scroll.setContentOffset(CGPoint(x: 0, y: max(-scroll.adjustedContentInset.top, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)), animated: false)
             try await Task.sleep(nanoseconds: 300_000_000)
+        }
+        if let lastContentID {
+            let contentFrame = try XCTUnwrap(layoutFrames[lastContentID], "Missing layout evidence for \(lastContentID)")
+            let barFrame = try XCTUnwrap(layoutFrames["navigation.bar"])
+            XCTAssertGreaterThan(contentFrame.height, 0)
+            XCTAssertLessThanOrEqual(contentFrame.maxY, barFrame.minY - 4, "Last content must scroll fully above the floating navigation")
+            XCTAssertGreaterThanOrEqual(contentFrame.minY, 0)
         }
         let renderer = UIGraphicsImageRenderer(bounds: frame)
         let image = renderer.image { _ in
@@ -99,9 +109,9 @@ final class QNScaleTestVisualTests: XCTestCase {
         }
         try await capture("home-dark", view: QNMainTabView(), store: store, dark: true)
         try await capture("home-body", view: QNModernSegmentCard(snapshot: XCTUnwrap(store.latestRecord)).padding(20).background(QNModernStyle.page), store: store)
-        try await capture("home-bottom", view: QNMainTabView(), store: store, scrollToBottom: true)
-        try await capture("trend-bottom", view: QNMainTabView(initialTab: .trend), store: store, scrollToBottom: true)
-        try await capture("profile-bottom", view: QNMainTabView(initialTab: .profile), store: store, scrollToBottom: true)
+        try await capture("home-bottom", view: QNMainTabView(), store: store, scrollToBottom: true, lastContentID: "dashboard.last-action")
+        try await capture("trend-bottom", view: QNMainTabView(initialTab: .trend), store: store, scrollToBottom: true, lastContentID: "trend.history.2")
+        try await capture("profile-bottom", view: QNMainTabView(initialTab: .profile), store: store, scrollToBottom: true, lastContentID: "profile.last-content")
     }
 
     @MainActor func testLargeTypeSmallViewportAndReportScreenshots() async throws {
@@ -109,8 +119,11 @@ final class QNScaleTestVisualTests: XCTestCase {
         try await capture("home-large-type", view: QNMainTabView(), store: store, large: true)
         try await capture("profile-large-type", view: QNMainTabView(initialTab: .profile), store: store, large: true)
         try await capture("home-small-viewport", view: QNMainTabView(), store: store, size: CGSize(width: 375, height: 667))
-        try await capture("report-light", view: QNModernReportView(snapshot: XCTUnwrap(store.latestRecord), onExport: {}), store: store)
-        try await capture("report-bottom", view: QNModernReportView(snapshot: XCTUnwrap(store.latestRecord), onExport: {}), store: store, scrollToBottom: true)
+        try await capture("home-small-bottom", view: QNMainTabView(), store: store, size: CGSize(width: 375, height: 667), scrollToBottom: true, lastContentID: "dashboard.last-action")
+        try await capture("home-large-bottom", view: QNMainTabView(), store: store, large: true, scrollToBottom: true, lastContentID: "dashboard.last-action")
+        try await capture("report-light", view: QNModernReportView(snapshot: XCTUnwrap(store.latestRecord)), store: store)
+        try await capture("report-bottom", view: QNModernReportView(snapshot: XCTUnwrap(store.latestRecord)), store: store, scrollToBottom: true)
+        try await capture("report-large-type", view: QNModernReportView(snapshot: XCTUnwrap(store.latestRecord)), store: store, large: true)
     }
 
     @MainActor func testPartialEmptySingleAndAbnormalScreenshots() async throws {
@@ -124,7 +137,55 @@ final class QNScaleTestVisualTests: XCTestCase {
         try await capture("trend-single", view: QNMainTabView(initialTab: .trend), store: single)
         let abnormal = try makeStore(single: true, abnormal: true)
         XCTAssertTrue(try XCTUnwrap(abnormal.latestRecord).isAbnormal)
-        try await capture("report-abnormal", view: QNModernReportView(snapshot: XCTUnwrap(abnormal.latestRecord), onExport: {}), store: abnormal)
+        try await capture("report-abnormal", view: QNModernReportView(snapshot: XCTUnwrap(abnormal.latestRecord)), store: abnormal)
+    }
+
+    @MainActor func testSelectedRegionsTrendDetailAndMeasurementStates() async throws {
+        let store = try makeStore()
+        let snapshot = try XCTUnwrap(store.latestRecord)
+        try await capture("body-fat-left-arm", view: QNModernSegmentCard(snapshot: snapshot, initialShowFat: true, initialRegion: .leftArm).padding(20).background(QNModernStyle.page), store: store)
+        let partial = try makeStore(missingRightArm: true)
+        let partialSnapshot = try XCTUnwrap(partial.latestRecord)
+        XCTAssertFalse(QNBodyRegion.rightArm.hasValue(showFat: false, in: partialSnapshot))
+        XCTAssertFalse(QNBodyRegion.rightArm.hasValue(showFat: true, in: partialSnapshot))
+        try await capture("body-partial", view: QNModernSegmentCard(snapshot: partialSnapshot).padding(20).background(QNModernStyle.page), store: partial)
+        let metric = QNTrendMetric.all[0]
+        let series = QNTrendSeries.make(records: store.records, metric: metric, range: .thirtyDays)
+        try await capture("trend-selected", view: QNModernTrendChart(series: series, metric: metric, allRecords: store.records, initialSelectedID: series.points.last?.id).padding(20).background(QNModernStyle.page), store: store)
+
+        QNSetScaleServiceTestState("已连接", false)
+        store.setUITestingMeasurement(state: "等待测量")
+        XCTAssertEqual(store.measurementUIState, .connected("QN-Scale"))
+        try await capture("measurement-connected", view: QNMainTabView(initialTab: .measurement), store: store)
+        store.setUITestingMeasurement(state: "测量生物阻抗", weight: 83.35)
+        XCTAssertEqual(store.measurementUIState, .measuring(weight: 83.35, state: "测量生物阻抗"))
+        try await capture("measurement-active", view: QNMainTabView(initialTab: .measurement), store: store)
+        try await capture("measurement-large-type", view: QNMainTabView(initialTab: .measurement), store: store, large: true)
+    }
+
+    @MainActor func testReportAcknowledgementDoesNotEraseDataOrNewMeasurements() async throws {
+        let store = try makeStore(single: true)
+        QNSetScaleServiceTestState("已连接", false)
+        let saved = try XCTUnwrap(store.latestRecord)
+        store.setUITestingMeasurement(state: "测量完成，已保存", weight: saved.weight, saved: saved)
+        store.scaleServiceDidUpdateWeight(.nan, state: "测量完成")
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(store.measurementState, "测量完成，已保存")
+        store.acknowledgeMeasurementReport(id: saved.id)
+        XCTAssertEqual(store.measurementUIState, .connected("QN-Scale"))
+        XCTAssertNil(store.weight)
+        XCTAssertEqual(store.records.count, 1)
+        XCTAssertEqual(store.lastSavedMeasurement?.id, saved.id)
+        XCTAssertNotNil(store.lastSavedMeasurement?.rawItemsJSON)
+        store.setUITestingMeasurement(state: "测量生物阻抗", weight: 84, saved: saved)
+        store.acknowledgeMeasurementReport(id: saved.id)
+        XCTAssertEqual(store.measurementUIState, .measuring(weight: 84, state: "测量生物阻抗"))
+        store.scaleServiceDidUpdateWeight(83.35, state: "实时重量")
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(store.measurementUIState, .measuring(weight: 83.35, state: "实时重量"))
+        store.setUITestingMeasurement(state: "测量异常，已保存原始结果", weight: 84, saved: saved)
+        store.acknowledgeMeasurementReport(id: saved.id)
+        XCTAssertEqual(store.measurementUIState, .abnormal("测量异常，已保存原始结果"))
     }
 
     @MainActor func testNativeBodyPathsAreSeparateAndCorrectlyMirrored() {

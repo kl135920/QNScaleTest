@@ -363,7 +363,9 @@ enum QNMeasurementUIState: Equatable {
         if connectionState == "连接中" { return .connecting(deviceName) }
         if isScanning && connectionState != "已连接" { return .scanning }
         guard connectionState == "已连接" else { return .disconnected }
-        let activeStates = ["开始测量", "实时体重", "测量生物阻抗", "测量心率"]
+        // The SDK state callback says 实时体重; the existing unsteady-weight
+        // callback says 实时重量. Both are actual measuring states.
+        let activeStates = ["开始测量", "实时体重", "实时重量", "测量生物阻抗", "测量心率"]
         if activeStates.contains(measurementState) { return .measuring(weight: weight, state: measurementState) }
         return .connected(deviceName)
     }

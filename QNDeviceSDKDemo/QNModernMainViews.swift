@@ -6,7 +6,6 @@ struct QNModernDashboardView: View {
     @State private var report: QNMeasurementSnapshot?
     @State private var reference: QNMeasurementSnapshot?
     @State private var showHistory = false
-    @State private var shareItem: QNModernShareItem?
     let onMeasure: () -> Void
 
     private var latest: QNMeasurementSnapshot? { store.latestRecord }
@@ -78,6 +77,7 @@ struct QNModernDashboardView: View {
                     }
                     .qnModernCard(cornerRadius: 18)
                     QNModernPrimaryButton(title: "开始测量", systemImage: "scalemass", action: onMeasure)
+                        .qnUITestFrame("dashboard.last-action")
                 } else {
                     emptyState
                 }
@@ -95,6 +95,7 @@ struct QNModernDashboardView: View {
             .padding(.top, QNModernStyle.pageTopPadding)
             .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
+        .qnFloatingNavigationClearance()
         .background(QNModernStyle.page.ignoresSafeArea())
         .overlay(alignment: .top) {
             if let toast = store.toastMessage {
@@ -115,11 +116,8 @@ struct QNModernDashboardView: View {
         }
         .sheet(isPresented: $showHistory) { QNHistoryView() }
         .fullScreenCover(item: $report) { snapshot in
-            QNModernReportView(snapshot: snapshot) {
-                shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
-            }
+            QNModernReportView(snapshot: snapshot)
         }
-        .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
     }
 
     private var header: some View {
@@ -140,7 +138,7 @@ struct QNModernDashboardView: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.body.weight(.semibold))
+                    .font(.system(size: 18))
                     .foregroundStyle(QNModernStyle.action)
                     .frame(width: 26)
                 Text(title).font(.body)
@@ -191,9 +189,10 @@ struct QNModernDashboardView: View {
 
 struct QNModernMeasurementView: View {
     @EnvironmentObject private var store: QNAppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .largeTitle) private var weightSize: CGFloat = 54
     @State private var report: QNMeasurementSnapshot?
-    @State private var shareItem: QNModernShareItem?
+    @State private var presentedMeasurementID: UUID?
 
     var body: some View {
         ScrollView {
@@ -209,22 +208,24 @@ struct QNModernMeasurementView: View {
             .padding(.top, QNModernStyle.pageTopPadding)
             .padding(.bottom, QNModernStyle.pageBottomPadding)
         }
+        .qnFloatingNavigationClearance()
         .background(QNModernStyle.page.ignoresSafeArea())
         .onAppear { store.beginAutomaticConnection() }
         .onChange(of: store.lastSavedMeasurement?.id) { _ in
             report = store.lastSavedMeasurement
+            presentedMeasurementID = report?.id
         }
         .onChange(of: store.measurementState) { state in
             if state.contains("已保存") {
                 report = store.lastSavedMeasurement
+                presentedMeasurementID = report?.id
             }
         }
-        .fullScreenCover(item: $report) { snapshot in
-            QNModernReportView(snapshot: snapshot) {
-                shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
-            }
+        .fullScreenCover(item: $report, onDismiss: {
+            if let id = presentedMeasurementID { store.acknowledgeMeasurementReport(id: id) }
+        }) { snapshot in
+            QNModernReportView(snapshot: snapshot)
         }
-        .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
     }
 
     private var connectionBadge: some View {
@@ -275,11 +276,16 @@ struct QNModernMeasurementView: View {
                 secondaryButton(title: "断开连接", systemImage: "link.badge.minus") { store.disconnectAndSuspendAutomaticConnection() }
             case .measuring(let weight, let state):
                 if let weight {
-                    HStack(alignment: .lastTextBaseline, spacing: 7) {
-                        Text(store.displayWeightUnit.text(fromKilograms: weight))
-                            .font(.system(size: weightSize, weight: .semibold).monospacedDigit())
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text(store.displayWeightUnit.symbol).font(.title3).foregroundStyle(.secondary)
+                    if dynamicTypeSize.isAccessibilitySize {
+                        VStack(spacing: 0) {
+                            realtimeWeightNumber(weight)
+                            Text(store.displayWeightUnit.symbol).font(.title3).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        HStack(alignment: .lastTextBaseline, spacing: 7) {
+                            realtimeWeightNumber(weight)
+                            Text(store.displayWeightUnit.symbol).font(.title3).foregroundStyle(.secondary)
+                        }
                     }
                     Text("实时重量").font(.subheadline).foregroundStyle(.secondary)
                 }
@@ -301,6 +307,7 @@ struct QNModernMeasurementView: View {
                 if isSaved, let snapshot = store.lastSavedMeasurement {
                     secondaryButton(title: "查看本次报告", systemImage: "doc.text.magnifyingglass") {
                         report = snapshot
+                        presentedMeasurementID = snapshot.id
                     }
                 }
             case .failed(let message):
@@ -316,7 +323,7 @@ struct QNModernMeasurementView: View {
                     if let mask = snapshot.eightReasonMask {
                         Text("SDK eightReasonMask：\(mask)").font(.caption).foregroundStyle(.secondary)
                     }
-                    secondaryButton(title: "查看本次报告", systemImage: "doc.text") { report = snapshot }
+                    secondaryButton(title: "查看本次报告", systemImage: "doc.text") { report = snapshot; presentedMeasurementID = snapshot.id }
                 }
                 retryButton
             }
@@ -328,6 +335,12 @@ struct QNModernMeasurementView: View {
 
     private var retryButton: some View {
         QNModernPrimaryButton(title: "重试", systemImage: "arrow.clockwise") { store.retryAutomaticConnection() }
+    }
+
+    private func realtimeWeightNumber(_ weight: Double) -> some View {
+        Text(store.displayWeightUnit.text(fromKilograms: weight))
+            .font(.system(size: weightSize, weight: .semibold).monospacedDigit())
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func stateHeader(icon: String, title: String, message: String, tint: Color) -> some View {
@@ -388,8 +401,9 @@ struct QNModernReportView: View {
     @EnvironmentObject private var store: QNAppStore
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let snapshot: QNMeasurementSnapshot
-    let onExport: () -> Void
     @State private var showRaw = false
+    @State private var showReference = false
+    @State private var shareItem: QNModernShareItem?
 
     private var columns: [GridItem] {
         dynamicTypeSize.isAccessibilitySize ? [GridItem(.flexible())] : [GridItem(.flexible()), GridItem(.flexible())]
@@ -410,6 +424,16 @@ struct QNModernReportView: View {
                         }
                     }
                     QNModernSegmentCard(snapshot: snapshot)
+                    Button { showReference = true } label: {
+                        HStack {
+                            Label("指标参考与依据", systemImage: "list.clipboard")
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                        .font(.body)
+                        .padding(QNModernStyle.cardPadding)
+                        .qnModernCard(cornerRadius: 18)
+                    }.buttonStyle(.plain)
                     DisclosureGroup(isExpanded: $showRaw) {
                         QNModernRawItems(snapshot: snapshot).padding(.top, 10)
                     } label: {
@@ -445,6 +469,8 @@ struct QNModernReportView: View {
             }
         }
         .background(QNModernStyle.page.ignoresSafeArea())
+        .sheet(isPresented: $showReference) { QNModernMetricReferenceSheet(snapshot: snapshot) }
+        .sheet(item: $shareItem) { item in QNModernShareSheet(items: [item.url]) }
     }
 
     private var compactHeader: some View {
@@ -461,7 +487,9 @@ struct QNModernReportView: View {
                 .font(.headline)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
-            Button(action: onExport) {
+            Button {
+                shareItem = store.export(snapshot).map { QNModernShareItem(url: $0) }
+            } label: {
                 Image(systemName: "square.and.arrow.up")
                     .font(.body.weight(.semibold))
                     .frame(width: 44, height: 44)
@@ -513,12 +541,15 @@ private struct QNModernReportWeight: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("体重").font(.subheadline).foregroundStyle(.secondary)
-            HStack(alignment: .lastTextBaseline, spacing: 6) {
-                Text(snapshot.weight.map { store.displayWeightUnit.text(fromKilograms: $0) } ?? "—")
-                    .font(.system(size: numberSize, weight: .semibold).monospacedDigit())
-                    .fixedSize(horizontal: false, vertical: true)
-                if snapshot.weight != nil {
-                    Text(store.displayWeightUnit.symbol).font(.title3).foregroundStyle(.secondary)
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 0) {
+                    weightNumber
+                    weightUnit
+                }
+            } else {
+                HStack(alignment: .lastTextBaseline, spacing: 6) {
+                    weightNumber
+                    weightUnit
                 }
             }
             if snapshot.isAbnormal {
@@ -529,6 +560,18 @@ private struct QNModernReportWeight: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
         .qnModernCard()
+    }
+
+    private var weightNumber: some View {
+        Text(snapshot.weight.map { store.displayWeightUnit.text(fromKilograms: $0) } ?? "—")
+            .font(.system(size: numberSize, weight: .semibold).monospacedDigit())
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private var weightUnit: some View {
+        if snapshot.weight != nil {
+            Text(store.displayWeightUnit.symbol).font(.title3).foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -579,6 +622,7 @@ private struct QNModernRawItems: View {
 
 private struct QNModernMetricReferenceView: View {
     @EnvironmentObject private var store: QNAppStore
+    @ScaledMetric(relativeTo: .title) private var numberSize: CGFloat = 30
     let snapshot: QNMeasurementSnapshot
 
     var body: some View {
@@ -604,7 +648,7 @@ private struct QNModernMetricReferenceView: View {
         return VStack(alignment: .leading, spacing: 9) {
             Text(title).font(.headline)
             HStack(alignment: .lastTextBaseline, spacing: 5) {
-                Text(formatted.number).font(.system(size: 36, weight: .bold, design: .rounded).monospacedDigit())
+                Text(formatted.number).font(.system(size: numberSize, weight: .semibold).monospacedDigit())
                 if value != nil, let unit = formatted.unit { Text(unit).font(.subheadline).foregroundStyle(.secondary) }
                 Spacer()
                 if let evaluation, value != nil {

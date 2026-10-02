@@ -295,6 +295,9 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
 
     func scaleServiceDidUpdateWeight(_ weight: Double, state: String) {
         DispatchQueue.main.async {
+            // A late SDK completion notification must not turn a confirmed
+            // saved result back into the UI's transient "saving" state.
+            if state == "测量完成", self.measurementState.contains("已保存") { return }
             if weight.isFinite { self.weight = weight }
             self.measurementState = state
         }
@@ -347,6 +350,15 @@ final class QNAppStore: NSObject, ObservableObject, QNScaleServiceDelegate {
             measurementState = "保存失败"
             lastError = "重试保存失败：\(error.localizedDescription)"
         }
+    }
+
+    // Reset only the presentation of an acknowledged normal result. Keep the
+    // saved record and raw data, and never overwrite a newer SDK measurement.
+    func acknowledgeMeasurementReport(id: UUID) {
+        guard lastSavedMeasurement?.id == id, pendingMeasurement == nil,
+              measurementState == "测量完成，已保存" else { return }
+        measurementState = "等待测量"
+        weight = nil
     }
 
     func scaleServiceDidReceiveLog(_ line: String) { objectWillChange.send() }

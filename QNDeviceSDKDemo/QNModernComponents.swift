@@ -20,7 +20,53 @@ extension View {
         background(QNModernStyle.card)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
+
+    func qnFloatingNavigationClearance() -> some View {
+        modifier(QNFloatingNavigationClearance())
+    }
+
+    @ViewBuilder func qnUITestFrame(_ identifier: String) -> some View {
+#if QN_UI_TESTING
+        background(GeometryReader { proxy in
+            Color.clear.preference(key: QNUILayoutFrames.self, value: [identifier: proxy.frame(in: .global)])
+        })
+#else
+        self
+#endif
+    }
 }
+
+private struct QNFloatingNavigationHeightKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+extension EnvironmentValues {
+    var qnFloatingNavigationHeight: CGFloat {
+        get { self[QNFloatingNavigationHeightKey.self] }
+        set { self[QNFloatingNavigationHeightKey.self] = newValue }
+    }
+}
+
+// Apply at each ScrollView, not outside TabView: UIKit tab containment does not
+// reliably propagate an ancestor SwiftUI safe-area inset to its child pages.
+private struct QNFloatingNavigationClearance: ViewModifier {
+    @Environment(\.qnFloatingNavigationHeight) private var height
+
+    func body(content: Content) -> some View {
+        content.safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: height).allowsHitTesting(false).accessibilityHidden(true)
+        }
+    }
+}
+
+#if QN_UI_TESTING
+struct QNUILayoutFrames: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
+    }
+}
+#endif
 
 struct QNModernPageTitle: View {
     let title: String
@@ -73,6 +119,7 @@ struct QNModernPrimaryButton: View {
 
 struct QNModernMetricTile: View {
     @EnvironmentObject private var store: QNAppStore
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .title) private var numberSize: CGFloat = 29
     let title: String
     let value: Double?
@@ -88,14 +135,17 @@ struct QNModernMetricTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 18)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Image(systemName: icon)
+                        .font(.system(size: 15))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18)
+                        .accessibilityHidden(true)
+                }
                 Text(title)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text(formatted.number)
@@ -198,6 +248,12 @@ struct QNModernSegmentCard: View {
     let snapshot: QNMeasurementSnapshot
     @State private var showFat = false
     @State private var selected: QNBodyRegion = .trunk
+
+    init(snapshot: QNMeasurementSnapshot, initialShowFat: Bool = false, initialRegion: QNBodyRegion = .trunk) {
+        self.snapshot = snapshot
+        _showFat = State(initialValue: initialShowFat)
+        _selected = State(initialValue: initialRegion)
+    }
 
     private var hasAnySegmentValue: Bool {
         QNBodyRegion.allCases.contains { region in
